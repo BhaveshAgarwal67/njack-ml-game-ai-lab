@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NJACK ML Game AI Lab</title>
+<style>
+:root{--bg:#141211;--panel:#1d1a18;--line:#35302c;--ink:#f3ece6;--mute:#a79c93;--acc:#F08A55;--win:#6fcf97;--lose:#eb6b6b;--draw:#e8c468;--blue:#6aa9ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:20px;padding:14px 28px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{font:700 22px "Space Grotesk",system-ui,sans-serif;letter-spacing:.02em}.logo b{color:var(--acc)}
+nav{display:flex;gap:8px;flex-wrap:wrap}
+nav button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 16px;font:inherit;font-size:16px;cursor:pointer}
+nav button.on{background:var(--acc);color:#1a1210;border-color:var(--acc);font-weight:700}
+nav button span{opacity:.6;margin-right:6px;font-size:13px}
+main{padding:22px 28px;max-width:1300px;margin:0 auto}
+section{display:none}section.on{display:block}
+h2{font:700 30px "Space Grotesk",system-ui,sans-serif;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 18px}
+.row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+button.b,select{background:#2a2522;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 15px;font:inherit;font-size:16px;cursor:pointer}
+button.b:hover{border-color:var(--acc)}button.b.p{background:var(--acc);color:#1a1210;border-color:var(--acc);font-weight:700}
+label{color:var(--mute);font-size:16px;display:flex;gap:7px;align-items:center}
+input[type=range]{accent-color:var(--acc)}
+.stat{font-size:17px;color:var(--mute)}.stat b{color:var(--ink)}
+.big{font:700 40px "Space Grotesk",system-ui,sans-serif}
+.msg{min-height:30px;font-size:20px;margin:8px 0}
+/* tic-tac-toe */
+.ttt{display:grid;grid-template-columns:repeat(3,120px);gap:8px}
+.ttt button{width:120px;height:120px;background:#2a2522;border:1px solid var(--line);border-radius:12px;color:var(--ink);font:700 64px "Space Grotesk",sans-serif;cursor:pointer;position:relative;padding:0}
+.ttt button.X{color:var(--acc)}.ttt button.O{color:var(--blue)}
+.ttt button .h{position:absolute;right:7px;bottom:5px;font:700 15px Inter,sans-serif;padding:2px 8px;border-radius:99px;color:#111}
+.ttt button.winc{outline:3px solid var(--win)}
+.W{background:var(--win)}.D{background:var(--draw)}.L{background:var(--lose)}
+.ttt.small{grid-template-columns:repeat(3,92px)}.ttt.small button{width:92px;height:92px;font-size:48px}
+.ttt button .pc{position:absolute;left:0;right:0;bottom:6px;font:700 20px Inter,sans-serif;color:var(--ink)}
+.ttt button .pn{position:absolute;left:6px;top:4px;font:12px Inter,sans-serif;color:var(--mute)}
+table{border-collapse:collapse;font-size:17px}th,td{padding:7px 14px;text-align:left;border-bottom:1px solid var(--line)}th{color:var(--mute);font-weight:500}
+tr.best td{color:var(--acc);font-weight:700}
+.bar{height:12px;background:var(--acc);border-radius:6px;display:inline-block;vertical-align:middle}
+svg text{font-family:Inter,sans-serif}
+canvas{background:#171413;border:1px solid var(--line);border-radius:12px;max-width:100%}
+.cap{font-size:20px;min-height:58px;margin-top:6px}
+.note{color:var(--mute);font-size:15px;max-width:520px}
+kbd{background:#2a2522;border:1px solid var(--line);border-radius:5px;padding:0 6px;font-size:13px}
+</style></head><body>
+<header><div class="logo">NJACK <b>ML</b> &middot; Game AI Lab</div>
+<nav id="nav"></nav></header>
+<main>
+
+<!-- 1 BEAT THE MACHINE -->
+<section id="s1">
+<h2>Beat the machine</h2><p class="sub">You are X. The machine is O and uses minimax. Try to win.</p>
+<div class="row">
+ <div style="max-width:520px">
+  <div class="ttt" id="ttt"></div>
+  <div class="msg" id="tmsg"></div>
+  <div class="ctl">
+   <button class="b p" id="newYou">New game (you first)</button>
+   <button class="b" id="newBot">Machine goes first</button>
+  </div>
+  <div class="ctl">
+   <label>Opponent <select id="tmode"><option value="perfect">Minimax (perfect)</option><option value="random">Random mover</option></select></label>
+   <label><input type="checkbox" id="thint"> Show what the AI sees (W / D / L for the side to move)</label>
+  </div>
+ </div>
+ <div class="card" style="min-width:340px">
+  <div class="stat">Positions the machine searched on its last move</div>
+  <div class="big" id="nPrune">&ndash;</div>
+  <div class="stat">with alpha-beta pruning</div>
+  <div class="big" id="nFull" style="color:var(--mute)">&ndash;</div>
+  <div class="stat">without pruning (every possible line)</div>
+  <p class="note" style="margin-top:14px">Minimax plays out every possible future to the end, scores them +1 / 0 / &minus;1, and passes the scores back up. Pruning skips branches that cannot change the answer.</p>
+ </div>
+</div>
+</section>
+
+<!-- 2 MINIMAX TREE -->
+<section id="s2">
+<h2>Minimax and pruning, step by step</h2><p class="sub">Triangle up = the player who picks the biggest score. Triangle down = the player who picks the smallest. Click a leaf to change its number.</p>
+<svg id="tree" viewBox="0 0 960 400" width="100%" style="max-width:1100px;background:#171413;border:1px solid var(--line);border-radius:14px"></svg>
+<div class="cap" id="tcap"></div>
+<div class="ctl">
+ <button class="b p" id="tStep">Next step &rarr;</button>
+ <button class="b" id="tAuto">Auto-play</button>
+ <button class="b" id="tReset">Reset</button>
+ <button class="b" id="tRand">Random leaves</button>
+ <label><input type="checkbox" id="tPrune"> Alpha-beta pruning</label>
+ <span class="stat" id="tCount"></span>
+</div>
+</section>
+
+<!-- 3 EXPECTIMAX -->
+<section id="s3">
+<h2>Expectimax: decisions with luck</h2><p class="sub">A safe payout, or a gamble. Which would the AI take?</p>
+<div class="row">
+ <div class="card" style="min-width:300px">
+  <label>Safe payout <input type="range" id="gSafe" min="1" max="12" value="5"> <b id="gSafeV"></b></label>
+  <label>Gamble prize <input type="range" id="gPrize" min="2" max="30" value="12"> <b id="gPrizeV"></b></label>
+  <label>Win chance <input type="range" id="gProb" min="5" max="95" step="5" value="50"> <b id="gProbV"></b></label>
+  <div class="msg" id="gVerdict" style="margin-top:14px"></div>
+  <div class="stat">Expected value = chance &times; prize</div>
+ </div>
+ <div>
+  <div class="ctl"><button class="b p" data-g="1">Play 1</button><button class="b" data-g="10">&times;10</button><button class="b" data-g="100">&times;100</button><button class="b" data-g="1000">&times;1000</button><button class="b" id="gReset">Reset</button></div>
+  <canvas id="gChart" width="760" height="320"></canvas>
+  <div class="stat" id="gStat" style="margin-top:8px"></div>
+ </div>
+</div>
+</section>
+
+<!-- 4 MARKOV -->
+<section id="s4">
+<h2>Markov chains: Snakes &amp; Ladders</h2><p class="sub">The next square depends only on the square you are on now. That is the whole idea.</p>
+<div class="row">
+ <svg id="board" viewBox="0 0 600 600" width="600" height="600" style="max-width:100%;border-radius:12px"></svg>
+ <div style="min-width:320px;flex:1">
+  <div class="card">
+   <label>After <b id="kV">5</b> turns <input type="range" id="kTurns" min="1" max="40" value="5"></label>
+   <div class="ctl"><label>Show <select id="heatMode"><option value="none">Nothing (predict first!)</option><option value="exact">Exact chances (Markov maths)</option><option value="sim">2,000 simulated players</option></select></label></div>
+   <div class="stat" id="heatInfo"></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+   <div class="ctl"><button class="b p" id="roll">Roll the dice</button><button class="b" id="rollReset">Reset token</button><span class="big" id="die"></span></div>
+   <div class="stat" id="rollInfo">Token is off the board.</div>
+  </div>
+  <div class="card" style="margin-top:14px">
+   <div class="ctl"><button class="b" id="simGames">Simulate 10,000 whole games</button></div>
+   <canvas id="hist" width="520" height="190"></canvas>
+   <div class="stat" id="histInfo"></div>
+  </div>
+ </div>
+</div>
+</section>
+
+<!-- 5 MONTE CARLO -->
+<section id="s5">
+<h2>Monte Carlo: learn by random sampling</h2><p class="sub">Part 1: estimate &pi; by throwing darts. Part 2: pick a move by playing thousands of random games.</p>
+<div class="row">
+ <div class="card">
+  <canvas id="pi" width="320" height="320"></canvas>
+  <div class="ctl"><button class="b p" data-d="10">+10</button><button class="b" data-d="100">+100</button><button class="b" data-d="1000">+1,000</button><button class="b" data-d="100000">+100,000</button><button class="b" id="piReset">Reset</button></div>
+  <div class="stat" id="piInfo"></div>
+  <p class="note">Darts that land inside the quarter circle vs all darts &asymp; &pi;/4. No geometry needed, just luck and patience.</p>
+ </div>
+ <div class="card">
+  <div class="stat">Click squares to set up a position (empty &rarr; X &rarr; O). Mover is picked automatically.</div>
+  <div class="ttt small" id="mcBoard" style="margin:12px 0"></div>
+  <div class="ctl">
+   <label>Random games per move <select id="mcN"><option>10</option><option>100</option><option selected>1000</option><option>10000</option></select></label>
+   <label>Method <select id="mcMode"><option value="flat">Equal for every move</option><option value="smart">Smart: favour promising moves (MCTS idea)</option></select></label>
+  </div>
+  <div class="ctl"><button class="b p" id="mcRun">Run random games</button><button class="b" id="mcPreset">Reset position</button></div>
+  <div id="mcTable"></div>
+  <div class="msg" id="mcMsg"></div>
+ </div>
+</div>
+</section>
+</main>
+
+<script>
+// ===== Pure logic (no DOM). Tested in node, inlined into the lab page. =====
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+function winner(b) {
+  for (const [a, c, d] of LINES) if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
+  return b.includes(null) ? null : 'D';
+}
+function turnOf(b) {
+  let x = 0, o = 0;
+  for (const v of b) { if (v === 'X') x++; else if (v === 'O') o++; }
+  return x <= o ? 'X' : 'O';
+}
+const other = t => (t === 'X' ? 'O' : 'X');
+let NODES = 0;
+// Value from X's point of view: +1 X wins, 0 draw, -1 O wins.
+function minimax(b, turn, alpha, beta, prune) {
+  NODES++;
+  const w = winner(b);
+  if (w) return w === 'X' ? 1 : w === 'O' ? -1 : 0;
+  let best = turn === 'X' ? -2 : 2;
+  for (let i = 0; i < 9; i++) {
+    if (b[i]) continue;
+    b[i] = turn;
+    const v = minimax(b, other(turn), alpha, beta, prune);
+    b[i] = null;
+    if (turn === 'X') { if (v > best) best = v; if (best > alpha) alpha = best; }
+    else { if (v < best) best = v; if (best < beta) beta = best; }
+    if (prune && alpha >= beta) break;
+  }
+  return best;
+}
+// Exact value of every legal move for `turn`, from that player's own point of view (+1 = they win).
+function moveValues(b, turn) {
+  const out = [];
+  for (let i = 0; i < 9; i++) {
+    if (b[i]) continue;
+    b[i] = turn;
+    const v = minimax(b, other(turn), -2, 2, true);
+    b[i] = null;
+    out.push({ i, v: turn === 'X' ? v : -v });
+  }
+  return out;
+}
+function countNodes(b, turn, prune) {
+  NODES = 0;
+  minimax(b.slice(), turn, -2, 2, prune);
+  return NODES;
+}
+function randomPlayout(b, turn) {
+  b = b.slice();
+  let w;
+  while (!(w = winner(b))) {
+    const empt = [];
+    for (let i = 0; i < 9; i++) if (!b[i]) empt.push(i);
+    b[empt[Math.floor(Math.random() * empt.length)]] = turn;
+    turn = other(turn);
+  }
+  return w; // 'X' | 'O' | 'D'
+}
+// Monte Carlo move evaluation. reward for mover: win 1, draw .5, loss 0.
+// mode 'flat': N playouts per move. mode 'smart': same total budget, UCB1 allocation.
+function mcEvaluate(b, mover, N, mode) {
+  const moves = [];
+  for (let i = 0; i < 9; i++) if (!b[i]) moves.push(i);
+  const stat = moves.map(i => ({ i, n: 0, s: 0 }));
+  const sample = st => {
+    const c = b.slice(); c[st.i] = mover;
+    const w = winner(c) || randomPlayout(c, other(mover));
+    st.n++; st.s += w === mover ? 1 : w === 'D' ? 0.5 : 0;
+  };
+  if (mode === 'flat') {
+    for (const st of stat) for (let k = 0; k < N; k++) sample(st);
+  } else {
+    const budget = N * stat.length;
+    for (const st of stat) sample(st);
+    for (let t = stat.length; t < budget; t++) {
+      let best = null, bv = -1;
+      for (const st of stat) {
+        const u = st.s / st.n + 1.2 * Math.sqrt(Math.log(t) / st.n);
+        if (u > bv) { bv = u; best = st; }
+      }
+      sample(best);
+    }
+  }
+  return stat.map(st => ({ i: st.i, visits: st.n, rate: st.s / st.n }));
+}
+
+// ----- Snakes & Ladders -----
+const JUMPS = {
+  1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100,
+  16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78,
+};
+function step(s, d) { const t = s + d; if (t > 100) return s; return JUMPS[t] || t; }
+// Exact distribution over squares after k turns (index 0 = not yet on board).
+function distAfter(k) {
+  let p = new Array(101).fill(0); p[0] = 1;
+  for (let t = 0; t < k; t++) {
+    const q = new Array(101).fill(0);
+    for (let s = 0; s <= 100; s++) {
+      if (!p[s]) continue;
+      if (s === 100) { q[100] += p[s]; continue; }
+      for (let d = 1; d <= 6; d++) q[step(s, d)] += p[s] / 6;
+    }
+    p = q;
+  }
+  return p;
+}
+function playGame() { let s = 0, n = 0; while (s < 100) { s = step(s, 1 + Math.floor(Math.random() * 6)); n++; } return n; }
+function playerAfter(k) { let s = 0; for (let t = 0; t < k && s < 100; t++) s = step(s, 1 + Math.floor(Math.random() * 6)); return s; }
+
+if (typeof module !== 'undefined') module.exports = { winner, turnOf, minimax, moveValues, countNodes, mcEvaluate, distAfter, playGame, step, JUMPS };
+
+</script>
+<script>
+const $ = id => document.getElementById(id);
+const SECTIONS = ['Beat the machine', 'Minimax tree', 'Expectimax', 'Markov chains', 'Monte Carlo'];
+let cur = 0;
+function show(n) {
+  cur = n;
+  document.querySelectorAll('section').forEach((s, i) => s.classList.toggle('on', i === n));
+  document.querySelectorAll('#nav button').forEach((b, i) => b.classList.toggle('on', i === n));
+}
+SECTIONS.forEach((t, i) => { const b = document.createElement('button'); b.innerHTML = '<span>' + (i + 1) + '</span>' + t; b.onclick = () => show(i); $('nav').appendChild(b); });
+document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; if (e.key >= '1' && e.key <= '5') show(+e.key - 1); });
+
+/* ---------- 1. Beat the machine ---------- */
+let tb, human = 'X', over = false;
+const tcells = [];
+for (let i = 0; i < 9; i++) { const c = document.createElement('button'); c.onclick = () => humanMove(i); $('ttt').appendChild(c); tcells.push(c); }
+function tNew(botFirst) {
+  tb = Array(9).fill(null); over = false; human = botFirst ? 'O' : 'X';
+  $('nPrune').textContent = $('nFull').textContent = '–';
+  tRender();
+  if (botFirst) botMove();
+}
+function humanMove(i) {
+  if (over || tb[i] || turnOf(tb) !== human) return;
+  tb[i] = human; tRender();
+  if (!checkEnd()) setTimeout(botMove, 350);
+}
+function botMove() {
+  if (over) return;
+  const bot = other(human), moves = moveValues(tb.slice(), bot);
+  let pick;
+  if ($('tmode').value === 'random') pick = moves[Math.floor(Math.random() * moves.length)].i;
+  else {
+    const best = Math.max(...moves.map(m => m.v)), cand = moves.filter(m => m.v === best);
+    pick = cand[Math.floor(Math.random() * cand.length)].i;
+    $('nPrune').textContent = countNodes(tb, bot, true).toLocaleString();
+    $('nFull').textContent = countNodes(tb, bot, false).toLocaleString();
+  }
+  tb[pick] = bot; tRender(); checkEnd();
+}
+function checkEnd() {
+  const w = winner(tb);
+  if (!w) return false;
+  over = true;
+  $('tmsg').textContent = w === 'D' ? "Draw. The machine can't lose, and you didn't either." : w === human ? 'You won! (That should be impossible against minimax.)' : 'The machine wins.';
+  tRender(); return true;
+}
+function tRender() {
+  const w = winner(tb), hint = $('thint').checked && !w, mv = hint ? moveValues(tb.slice(), turnOf(tb)) : [];
+  tcells.forEach((c, i) => {
+    c.className = tb[i] || ''; c.textContent = tb[i] || '';
+    const m = mv.find(m => m.i === i);
+    if (m) { const h = document.createElement('span'); h.className = 'h ' + (m.v > 0 ? 'W' : m.v < 0 ? 'L' : 'D'); h.textContent = m.v > 0 ? 'W' : m.v < 0 ? 'L' : 'D'; c.appendChild(h); }
+  });
+  if (!w) $('tmsg').textContent = turnOf(tb) === human ? 'Your move (' + human + ')' : 'Machine thinking…';
+}
+$('newYou').onclick = () => tNew(false); $('newBot').onclick = () => tNew(true);
+$('thint').onchange = tRender; $('tmode').onchange = () => tNew(human === 'O');
+tNew(false);
+
+/* ---------- 2. Minimax tree ---------- */
+let leaves = [3, 12, 8, 2, 4, 6, 14, 5, 2], events = [], stp = 0, timer = null;
+function buildEvents() {
+  events = []; const prune = $('tPrune').checked; let alpha = -Infinity, best = -Infinity;
+  for (let i = 0; i < 3; i++) {
+    let v = Infinity;
+    for (let j = 0; j < 3; j++) {
+      const id = i * 3 + j; events.push({ t: 'leaf', id, i });
+      v = Math.min(v, leaves[id]); events.push({ t: 'min', i, v, part: j < 2 });
+      if (prune && v <= alpha && j < 2) { events.push({ t: 'prune', i, from: j + 1, v, alpha }); break; }
+    }
+    events.push({ t: 'done', i, v }); best = Math.max(best, v); alpha = best; events.push({ t: 'root', v: best, i });
+  }
+  events.push({ t: 'end', v: best });
+}
+function tReset() { stp = 0; clearInterval(timer); timer = null; $('tAuto').textContent = 'Auto-play'; buildEvents(); tDraw(); }
+const LX = id => 60 + id * 105, MINX = i => LX(i * 3 + 1), ROOTX = LX(4);
+function tDraw() {
+  const seen = new Set(), pruned = new Set(), minv = [null, null, null], fin = [false, false, false]; let root = null, last = null;
+  for (let k = 0; k < stp; k++) {
+    const e = events[k]; last = e;
+    if (e.t === 'leaf') seen.add(e.id);
+    else if (e.t === 'min') minv[e.i] = e.v;
+    else if (e.t === 'prune') for (let j = e.from; j < 3; j++) pruned.add(e.i * 3 + j);
+    else if (e.t === 'done') fin[e.i] = true;
+    else if (e.t === 'root') root = e.v;
+  }
+  let s = '';
+  for (let i = 0; i < 3; i++) { s += `<line x1="${ROOTX}" y1="80" x2="${MINX(i)}" y2="210" stroke="#4a423c" stroke-width="2"/>`;
+    for (let j = 0; j < 3; j++) { const id = i * 3 + j; s += `<line x1="${MINX(i)}" y1="210" x2="${LX(id)}" y2="330" stroke="${pruned.has(id) ? '#5a2f2f' : '#4a423c'}" stroke-width="2" ${pruned.has(id) ? 'stroke-dasharray="5 5"' : ''}/>`; } }
+  const tri = (x, y, up, label, hi, col) => { const p = up ? `${x},${y - 30} ${x - 34},${y + 24} ${x + 34},${y + 24}` : `${x},${y + 30} ${x - 34},${y - 24} ${x + 34},${y - 24}`; return `<polygon points="${p}" fill="#2a2522" stroke="${hi ? col : '#6b5f56'}" stroke-width="${hi ? 4 : 2}"/><text x="${x}" y="${y + (up ? 12 : 0)}" text-anchor="middle" font-size="24" font-weight="700" fill="${col || '#f3ece6'}">${label}</text>`; };
+  s += tri(ROOTX, 80, true, root === null ? '?' : root, last && last.t === 'root', '#F08A55');
+  for (let i = 0; i < 3; i++) { const lab = minv[i] === null ? '?' : (fin[i] || i === 0 && minv[i] !== null && !fin[i] ? (fin[i] ? '' : '≤') : '≤') + minv[i]; const sl = minv[i] === null ? '?' : (fin[i] ? '' : '≤') + minv[i]; s += tri(MINX(i), 210, false, sl, last && last.i === i && last.t !== 'root', '#6aa9ff'); }
+  for (let id = 0; id < 9; id++) { const x = LX(id), isSeen = seen.has(id), pr = pruned.has(id), act = last && last.t === 'leaf' && last.id === id;
+    s += `<g data-leaf="${id}" style="cursor:pointer"><rect x="${x - 28}" y="330" width="56" height="48" rx="8" fill="${pr ? '#2a1c1c' : '#2a2522'}" stroke="${act ? '#e8c468' : pr ? '#5a2f2f' : '#6b5f56'}" stroke-width="${act ? 4 : 2}"/><text x="${x}" y="362" text-anchor="middle" font-size="24" font-weight="700" fill="${pr ? '#6b4a4a' : isSeen ? '#f3ece6' : '#a79c93'}">${leaves[id]}</text>${pr ? `<text x="${x}" y="322" text-anchor="middle" font-size="22" fill="#eb6b6b">✕</text>` : ''}</g>`; }
+  $('tree').innerHTML = s;
+  $('tree').querySelectorAll('[data-leaf]').forEach(g => g.onclick = ev => { const id = +g.dataset.leaf; leaves[id] = (leaves[id] + (ev.shiftKey ? 14 : 1)) % 15; tReset(); });
+  let cap = 'Press “Next step” to start looking at leaves from left to right.';
+  if (last) {
+    if (last.t === 'leaf') cap = `Look at leaf ${leaves[last.id]}.`;
+    if (last.t === 'min') cap = `The ▽ player wants the smallest. Best so far in this branch: ${last.v}.`;
+    if (last.t === 'prune') cap = `No need to look further! This branch is already worth ≤ ${last.v}, and the △ player has ${last.alpha} available elsewhere, so they will never choose it. Skipped leaves are crossed out.`;
+    if (last.t === 'done') cap = `This branch is worth ${last.v}.`;
+    if (last.t === 'root') cap = `The △ player picks the biggest branch so far: ${last.v}.`;
+    if (last.t === 'end') cap = `Done. The best the △ player can guarantee is ${last.v}.`;
+  }
+  $('tcap').textContent = cap; $('tCount').textContent = `Leaves looked at: ${seen.size} of 9`;
+}
+$('tStep').onclick = () => { if (stp < events.length) { stp++; tDraw(); } };
+$('tReset').onclick = tReset; $('tPrune').onchange = tReset;
+$('tRand').onclick = () => { leaves = leaves.map(() => 1 + Math.floor(Math.random() * 14)); tReset(); };
+$('tAuto').onclick = () => { if (timer) { clearInterval(timer); timer = null; $('tAuto').textContent = 'Auto-play'; return; } $('tAuto').textContent = 'Pause'; timer = setInterval(() => { if (stp >= events.length) { clearInterval(timer); timer = null; $('tAuto').textContent = 'Auto-play'; } else { stp++; tDraw(); } }, 800); };
+tReset();
+
+/* ---------- 3. Expectimax gamble ---------- */
+let gN = 0, gSum = 0, gWins = 0, gHist = [];
+function gParams() { return { safe: +$('gSafe').value, prize: +$('gPrize').value, p: +$('gProb').value / 100 }; }
+function gDraw() {
+  const { safe, prize, p } = gParams(), ev = p * prize;
+  $('gSafeV').textContent = safe; $('gPrizeV').textContent = prize; $('gProbV').textContent = Math.round(p * 100) + '%';
+  $('gVerdict').innerHTML = `Gamble EV = ${(ev).toFixed(2)} &nbsp;vs&nbsp; safe ${safe}<br><b style="color:var(--acc)">Expectimax picks: ${ev > safe ? 'GAMBLE' : ev < safe ? 'SAFE' : 'either (tie)'}</b>`;
+  const cv = $('gChart'), c = cv.getContext('2d'), W = cv.width, H = cv.height, top = Math.max(prize, safe) * 1.15, Y = v => H - 30 - (v / top) * (H - 50);
+  c.clearRect(0, 0, W, H); c.font = '15px Inter,sans-serif'; c.lineWidth = 2;
+  c.strokeStyle = '#6fcf97'; c.setLineDash([8, 6]); c.beginPath(); c.moveTo(40, Y(safe)); c.lineTo(W - 10, Y(safe)); c.stroke(); c.fillStyle = '#6fcf97'; c.fillText('safe ' + safe, 46, Y(safe) - 6);
+  c.strokeStyle = '#e8c468'; c.beginPath(); c.moveTo(40, Y(ev)); c.lineTo(W - 10, Y(ev)); c.stroke(); c.fillStyle = '#e8c468'; c.fillText('expected ' + ev.toFixed(2), W - 150, Y(ev) - 6); c.setLineDash([]);
+  if (gHist.length) { c.strokeStyle = '#F08A55'; c.lineWidth = 3; c.beginPath(); const n = gHist.length; gHist.forEach((v, i) => { const x = 40 + (n === 1 ? 0 : i / (n - 1)) * (W - 50); i ? c.lineTo(x, Y(v)) : c.moveTo(x, Y(v)); }); c.stroke(); if (n === 1) { c.fillStyle = '#F08A55'; c.beginPath(); c.arc(40, Y(gHist[0]), 5, 0, 7); c.fill(); } }
+  c.fillStyle = '#a79c93'; c.fillText('average payout per play, as you play more rounds →', 46, H - 8);
+  $('gStat').innerHTML = gN ? `Plays: <b>${gN.toLocaleString()}</b> · wins: <b>${gWins.toLocaleString()}</b> · average payout from gambling: <b>${(gSum / gN).toFixed(2)}</b> vs safe <b>${safe}</b>` : 'Press “Play” to start gambling.';
+}
+function gPlay(k) { const { prize, p } = gParams(); for (let i = 0; i < k; i++) { const w = Math.random() < p; gN++; gWins += w; gSum += w ? prize : 0; if (gN <= 2000 || gN % 10 === 0) gHist.push(gSum / gN); } gDraw(); }
+document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => gPlay(+b.dataset.g));
+function gReset() { gN = gSum = gWins = 0; gHist = []; gDraw(); }
+$('gReset').onclick = gReset; ['gSafe', 'gPrize', 'gProb'].forEach(id => $(id).oninput = gReset); gReset();
+
+/* ---------- 4. Snakes & Ladders ---------- */
+const CELL = 60;
+function sqXY(n) { const r = Math.floor((n - 1) / 10); let c = (n - 1) % 10; if (r % 2) c = 9 - c; return [c * CELL + CELL / 2, (9 - r) * CELL + CELL / 2]; }
+let heat = null, tokenSq = 0, simDist = null, simK = 0;
+function drawBoard() {
+  let s = '', txt = '', max = 0;
+  if (heat) for (let i = 1; i <= 100; i++) max = Math.max(max, heat[i]);
+  for (let n = 1; n <= 100; n++) {
+    const [x, y] = sqXY(n), p = heat ? heat[n] : 0, a = heat && max ? Math.sqrt(p / max) * 0.9 : 0;
+    s += `<rect x="${x - 30}" y="${y - 30}" width="60" height="60" fill="${(Math.floor((n - 1) / 10) + (n - 1) % 10) % 2 ? '#25201d' : '#1d1a18'}" stroke="#35302c"/>`;
+    if (a > 0.02) s += `<rect x="${x - 30}" y="${y - 30}" width="60" height="60" fill="rgba(240,138,85,${a})"/>`;
+    txt += `<text x="${x - 26}" y="${y - 17}" font-size="12" fill="#a79c93">${n}</text>`;
+    if (heat && p > 0.004) txt += `<text x="${x}" y="${y + 12}" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" stroke="#141211" stroke-width="3" paint-order="stroke">${(p * 100).toFixed(p >= 0.095 ? 0 : 1)}%</text>`;
+  }
+  for (const [a, b] of Object.entries(JUMPS)) { const [x1, y1] = sqXY(+a), [x2, y2] = sqXY(b), up = b > +a, col = up ? '#6fcf97' : '#eb6b6b';
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${up ? 6 : 5}" stroke-linecap="round" opacity=".5" ${up ? 'stroke-dasharray="1 9"' : ''}/><circle cx="${x1}" cy="${y1}" r="6" fill="${col}"/><circle cx="${x2}" cy="${y2}" r="4" fill="#141211" stroke="${col}" stroke-width="2"/>`; }
+  s += txt;
+  if (tokenSq > 0) { const [x, y] = sqXY(tokenSq); s += `<circle cx="${x}" cy="${y}" r="15" fill="#6aa9ff" stroke="#fff" stroke-width="3"/>`; }
+  $('board').innerHTML = s;
+}
+function updateHeat() {
+  const k = +$('kTurns').value, mode = $('heatMode').value; $('kV').textContent = k; heat = null;
+  if (mode === 'exact') heat = distAfter(k);
+  else if (mode === 'sim') { if (!simDist || simK !== k) { simDist = new Array(101).fill(0); for (let i = 0; i < 2000; i++) simDist[playerAfter(k)] += 1 / 2000; simK = k; } heat = simDist; }
+  if (heat) { let bi = 1; for (let i = 1; i <= 100; i++) if (heat[i] > heat[bi]) bi = i; const off = heat[0]; $('heatInfo').innerHTML = `Most likely square: <b>${bi}</b> (${(heat[bi] * 100).toFixed(1)}%) · already won: <b>${(heat[100] * 100).toFixed(1)}%</b>` + (off > 0.001 ? ` · still off the board: ${(off * 100).toFixed(0)}%` : ''); }
+  else $('heatInfo').textContent = 'Ask the room: where will a token be after ' + k + ' turns? Then reveal.';
+  drawBoard();
+}
+$('kTurns').oninput = updateHeat; $('heatMode').onchange = updateHeat;
+let rollN = 0;
+$('roll').onclick = () => { if (tokenSq === 100) { tokenSq = 0; rollN = 0; } const d = 1 + Math.floor(Math.random() * 6), from = tokenSq, t = from + d; tokenSq = step(from, d); rollN++; $('die').textContent = '🎲 ' + d;
+  $('rollInfo').innerHTML = `Rolled ${d}: ${from || 'start'} → ${t > 100 ? 'too far, stay' : t}` + (JUMPS[t] && t <= 100 ? ` → <b style="color:${JUMPS[t] > t ? 'var(--win)' : 'var(--lose)'}">${JUMPS[t] > t ? 'ladder' : 'snake'} to ${JUMPS[t]}` + '</b>' : '') + ` · roll #${rollN}` + (tokenSq === 100 ? ' · <b>Finished!</b>' : ''); drawBoard(); };
+$('rollReset').onclick = () => { tokenSq = 0; rollN = 0; $('die').textContent = ''; $('rollInfo').textContent = 'Token is off the board.'; drawBoard(); };
+$('simGames').onclick = () => { const N = 10000, res = []; let tot = 0; for (let i = 0; i < N; i++) { const g = playGame(); res.push(g); tot += g; } res.sort((a, b) => a - b);
+  const cv = $('hist'), c = cv.getContext('2d'), W = cv.width, H = cv.height, B = 15, bins = new Array(B).fill(0); res.forEach(g => bins[Math.min(B - 1, Math.floor(g / 10))]++); const mx = Math.max(...bins);
+  c.clearRect(0, 0, W, H); bins.forEach((v, i) => { const h = v / mx * (H - 40), x = 20 + i * (W - 30) / B; c.fillStyle = '#F08A55'; c.fillRect(x, H - 24 - h, (W - 30) / B - 4, h); c.fillStyle = '#a79c93'; c.font = '12px Inter'; c.fillText(i * 10 + (i === B - 1 ? '+' : ''), x, H - 8); });
+  $('histInfo').innerHTML = `Rolls needed to finish: average <b>${(tot / N).toFixed(1)}</b>, shortest <b>${res[0]}</b>, median <b>${res[N >> 1]}</b>, longest <b>${res[N - 1]}</b>`; };
+updateHeat();
+
+/* ---------- 5. Monte Carlo ---------- */
+let piIn = 0, piN = 0; const pc = $('pi').getContext('2d');
+function piInit() { pc.fillStyle = '#171413'; pc.fillRect(0, 0, 320, 320); pc.strokeStyle = '#F08A55'; pc.lineWidth = 2; pc.beginPath(); pc.arc(0, 320, 320, -Math.PI / 2, 0); pc.stroke(); piIn = piN = 0; piInfo(); }
+function piInfo() { const est = piN ? 4 * piIn / piN : 0; $('piInfo').innerHTML = piN ? `Darts: <b>${piN.toLocaleString()}</b> · inside: <b>${piIn.toLocaleString()}</b><br>Estimate of π: <b style="color:var(--acc);font-size:26px">${est.toFixed(4)}</b> <span class="stat">(true π = 3.1416, off by ${Math.abs(est - Math.PI).toFixed(4)})</span>` : 'Throw some darts.'; }
+document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { const k = +b.dataset.d; for (let i = 0; i < k; i++) { const x = Math.random(), y = Math.random(), inside = x * x + (1 - y) * (1 - y) <= 1 && true; const ins = (x * x + (1 - y) * (1 - y)) <= 1; piN++; if (ins) piIn++; if (k <= 1000) { pc.fillStyle = ins ? '#6fcf97' : '#eb6b6b'; pc.fillRect(x * 320, y * 320, 3, 3); } } piInfo(); });
+$('piReset').onclick = piInit; piInit();
+
+const PRESET = ['X', 'O', 'X', null, 'O', null, null, null, null]; let mb = PRESET.slice(); const mcells = [];
+for (let i = 0; i < 9; i++) { const c = document.createElement('button'); c.onclick = () => { mb[i] = mb[i] === null ? 'X' : mb[i] === 'X' ? 'O' : null; mcRender(); $('mcTable').innerHTML = ''; $('mcMsg').textContent = ''; }; $('mcBoard').appendChild(c); mcells.push(c); }
+let mcRes = null;
+function mcRender() { mcells.forEach((c, i) => { c.className = mb[i] || ''; c.textContent = mb[i] || ''; const r = mcRes && mcRes.find(r => r.i === i); if (r) { c.innerHTML = `<span class="pn">${i + 1}</span><span class="pc">${Math.round(r.rate * 100)}%</span>`; } else if (!mb[i]) c.innerHTML = `<span class="pn">${i + 1}</span>`; }); }
+$('mcPreset').onclick = () => { mb = PRESET.slice(); mcRes = null; mcRender(); $('mcTable').innerHTML = ''; $('mcMsg').textContent = ''; };
+$('mcRun').onclick = () => {
+  mcRes = null; const w = winner(mb); if (w) { $('mcMsg').textContent = 'That game is already over. Clear a square.'; mcRender(); return; }
+  const mover = turnOf(mb), N = +$('mcN').value, mode = $('mcMode').value;
+  $('mcMsg').textContent = 'Playing ' + (N * mb.filter(v => !v).length).toLocaleString() + ' random games…';
+  setTimeout(() => {
+    const t0 = performance.now(), res = mcEvaluate(mb, mover, N, mode), ex = moveValues(mb.slice(), mover), bestRate = Math.max(...res.map(r => r.rate)), bestEx = Math.max(...ex.map(m => m.v)); mcRes = res;
+    $('mcTable').innerHTML = `<table><tr><th>Square</th><th>Random-game win rate</th><th>Games</th><th>Perfect answer (minimax)</th></tr>` + res.map(r => { const e = ex.find(m => m.i === r.i).v; return `<tr class="${r.rate === bestRate ? 'best' : ''}"><td>${r.i + 1}</td><td><span class="bar" style="width:${Math.round(r.rate * 140)}px"></span> ${(r.rate * 100).toFixed(0)}%</td><td>${r.visits.toLocaleString()}</td><td>${e > 0 ? 'wins' : e < 0 ? 'loses' : 'draws'}${e === bestEx ? ' ✓' : ''}</td></tr>`; }).join('') + '</table>';
+    const picked = res.filter(r => r.rate === bestRate).map(r => r.i); const ok = picked.some(i => ex.find(m => m.i === i).v === bestEx);
+    $('mcMsg').innerHTML = `Mover: <b>${mover}</b>. Random games pick square <b>${picked[0] + 1}</b> — ${ok ? '<span style="color:var(--win)">agrees with perfect play.</span>' : '<span style="color:var(--lose)">disagrees with perfect play. Too few games? Try more.</span>'}`;
+    mcRender();
+  }, 30);
+};
+mcRender();
+show(0);
+</script></body></html>
