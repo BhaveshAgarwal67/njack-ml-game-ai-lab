@@ -156,8 +156,36 @@ kbd{background:#2a2522;border:1px solid var(--line);border-radius:5px;padding:0 
  </div>
 </div>
 </section>
+
+<!-- 6 LIVE CLASS GAME -->
+<section id="s6">
+<h2>Live class game</h2><p class="sub">Everyone joins on their phone: play the AI at Nim and tic-tac-toe, and vote on your questions. Needs internet (phones: mobile data is fine).</p>
+<div class="row">
+ <div class="card" style="text-align:center;min-width:300px">
+  <div id="qr" style="display:inline-block;background:#fff;padding:10px;border-radius:10px;min-height:120px"></div>
+  <div class="stat" style="margin-top:10px">Scan, or open</div>
+  <div style="font-size:15px;word-break:break-all;max-width:300px" id="joinUrl"></div>
+  <div class="stat" style="margin-top:8px">Room <b id="roomCode" style="font-size:24px;color:var(--acc)"></b></div>
+  <div class="ctl" style="justify-content:center"><button class="b" id="newRoom">New room</button></div>
+  <div class="stat" id="liveStat">Connecting…</div>
+ </div>
+ <div style="flex:1;min-width:340px">
+  <div class="card">
+   <div class="ctl"><button class="b p" id="vOpen">Open voting</button><button class="b" id="vClose">Close voting</button><button class="b" id="vClear">Clear votes</button><span class="big" id="vState" style="font-size:24px"></span></div>
+   <div class="stat">Phones have A B C D and 1–9 buttons. Put the question and what each button means on your slide, then open voting.</div>
+   <div id="vBars" style="margin-top:12px"></div>
+   <div class="stat" id="vTotal"></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+   <div style="font:700 22px 'Space Grotesk',sans-serif;margin-bottom:6px">Beat the AI scoreboard</div>
+   <div id="lb"></div>
+  </div>
+ </div>
+</div>
+</section>
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // ===== Pure logic (no DOM). Tested in node, inlined into the lab page. =====
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -273,15 +301,15 @@ if (typeof module !== 'undefined') module.exports = { winner, turnOf, minimax, m
 </script>
 <script>
 const $ = id => document.getElementById(id);
-const SECTIONS = ['Beat the machine', 'Minimax tree', 'Expectimax', 'Markov chains', 'Monte Carlo'];
+const SECTIONS = ['Beat the machine', 'Minimax tree', 'Expectimax', 'Markov chains', 'Monte Carlo', 'Live class game'];
 let cur = 0;
 function show(n) {
-  cur = n;
+  cur = n; if (n === 5 && typeof initLive === 'function') initLive();
   document.querySelectorAll('section').forEach((s, i) => s.classList.toggle('on', i === n));
   document.querySelectorAll('#nav button').forEach((b, i) => b.classList.toggle('on', i === n));
 }
 SECTIONS.forEach((t, i) => { const b = document.createElement('button'); b.innerHTML = '<span>' + (i + 1) + '</span>' + t; b.onclick = () => show(i); $('nav').appendChild(b); });
-document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; if (e.key >= '1' && e.key <= '5') show(+e.key - 1); });
+document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; if (e.key >= '1' && e.key <= '6') show(+e.key - 1); });
 
 /* ---------- 1. Beat the machine ---------- */
 let tb, human = 'X', over = false;
@@ -469,5 +497,51 @@ $('mcRun').onclick = () => {
   }, 30);
 };
 mcRender();
+
+/* ---------- 6. Live class game ---------- */
+const PLAY_BASE = 'https://bhaveshagarwal67.github.io/njack-ml-game-ai-lab/play.html';
+let room = (new URLSearchParams(location.search).get('r') || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12), es = null, liveInit = false;
+if (!room) { try { room = localStorage.getItem('njRoom') || ''; } catch (e) {} }
+if (!room) room = Math.random().toString(36).slice(2, 7);
+try { localStorage.setItem('njRoom', room); } catch (e) {}
+let L;
+function liveReset() { L = { seen: new Set(), open: false, votes: {}, players: {}, sc: {} }; }
+function liveProcess(m) {
+  if (L.seen.has(m.id)) return; L.seen.add(m.id);
+  let d; try { d = JSON.parse(m.message); } catch (e) { return; }
+  if (d.t === 'open') { L.open = true; L.votes = {}; }
+  else if (d.t === 'close') L.open = false;
+  else if (d.t === 'clear') L.votes = {};
+  else if (d.cid) {
+    L.players[d.cid] = d.name || 'anon';
+    if (d.t === 'v' && L.open) L.votes[d.cid] = d.choice;
+    if (d.t === 's') { const p = L.sc[d.cid] || (L.sc[d.cid] = { name: d.name || 'anon', nim: { w: 0, n: 0 }, ttt: { w: 0, d: 0, n: 0 } }); p.name = d.name || p.name; const g = p[d.game]; if (g) { g.n++; if (d.res === 'win') g.w++; if (d.res === 'draw') g.d++; } }
+  }
+}
+function liveRender() {
+  $('vState').innerHTML = L.open ? '<span style="color:var(--win)">● VOTING OPEN</span>' : '<span style="color:var(--mute)">voting closed</span>';
+  const cnt = {}, keys = ['A', 'B', 'C', 'D', '1', '2', '3', '4', '5', '6', '7', '8', '9']; let tot = 0;
+  Object.values(L.votes).forEach(v => { cnt[v] = (cnt[v] || 0) + 1; tot++; });
+  const mx = Math.max(1, ...Object.values(cnt)), show = keys.filter(k => 'ABCD'.includes(k) || cnt[k]);
+  $('vBars').innerHTML = show.map(k => `<div style="display:flex;align-items:center;gap:10px;margin:5px 0"><b style="width:22px;font-size:22px">${k}</b><div style="flex:1;background:#2a2522;border-radius:8px;height:30px"><div style="width:${(cnt[k] || 0) / mx * 100}%;background:var(--acc);height:30px;border-radius:8px;transition:width .3s"></div></div><b style="width:40px;font-size:22px;text-align:right">${cnt[k] || 0}</b></div>`).join('');
+  $('vTotal').textContent = tot + ' vote' + (tot === 1 ? '' : 's') + ' · ' + Object.keys(L.players).length + ' phones joined';
+  const P = Object.values(L.sc), nimP = P.filter(p => p.nim.n), tttP = P.filter(p => p.ttt.n), nimWin = nimP.filter(p => p.nim.w), tttWin = tttP.filter(p => p.ttt.w), tttDraw = tttP.filter(p => p.ttt.d);
+  const top = nimWin.sort((a, b) => b.nim.w - a.nim.w).slice(0, 5);
+  $('lb').innerHTML = `<div style="font-size:19px"><b>Nim:</b> ${nimWin.length} of ${nimP.length} players beat the AI</div><div style="font-size:19px"><b>Tic-tac-toe:</b> ${tttWin.length} of ${tttP.length} players beat the AI &middot; ${tttDraw.length} forced a draw</div>` + (top.length ? '<table style="margin-top:8px"><tr><th>Nim winners</th><th>Wins</th></tr>' + top.map(p => `<tr><td>${p.name.replace(/[<>&]/g, '')}</td><td>${p.nim.w}</td></tr>`).join('') + '</table>' : '<div class="stat" style="margin-top:6px">No winners yet.</div>');
+}
+function liveSend(obj) { return fetch('https://ntfy.sh/njackml-ai-' + room, { method: 'POST', body: JSON.stringify(obj) }).catch(() => $('liveStat').textContent = 'Could not send. Check internet.'); }
+function liveConnect() {
+  if (es) es.close(); liveReset(); liveRender();
+  $('roomCode').textContent = room; const url = PLAY_BASE + '?r=' + room; $('joinUrl').textContent = url;
+  $('qr').innerHTML = ''; if (typeof QRCode !== 'undefined') new QRCode($('qr'), { text: url, width: 220, height: 220 }); else $('qr').textContent = '(QR needs internet; type the link on a slide)';
+  es = new EventSource('https://ntfy.sh/njackml-ai-' + room + '/sse?since=6h');
+  es.onopen = () => $('liveStat').innerHTML = '<span style="color:var(--win)">● Connected</span>';
+  es.onerror = () => $('liveStat').innerHTML = '<span style="color:var(--lose)">● Reconnecting…</span>';
+  es.onmessage = ev => { try { const m = JSON.parse(ev.data); if (m.event === 'message') { liveProcess(m); liveRender(); } } catch (e) {} };
+}
+function initLive() { if (liveInit) return; liveInit = true; liveConnect(); }
+$('vOpen').onclick = () => liveSend({ t: 'open' }); $('vClose').onclick = () => liveSend({ t: 'close' }); $('vClear').onclick = () => liveSend({ t: 'clear' });
+$('newRoom').onclick = () => { room = Math.random().toString(36).slice(2, 7); try { localStorage.setItem('njRoom', room); } catch (e) {} liveConnect(); };
+liveReset();
 show(0);
 </script></body></html>

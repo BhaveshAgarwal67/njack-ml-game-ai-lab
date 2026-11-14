@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NJACK ML Play</title>
+<style>
+:root{--bg:#141211;--panel:#1d1a18;--line:#35302c;--ink:#f3ece6;--mute:#a79c93;--acc:#F08A55;--win:#6fcf97;--lose:#eb6b6b;--blue:#6aa9ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:0 16px 40px}
+.wrap{max-width:460px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 0}
+.logo{font:700 20px "Space Grotesk",system-ui,sans-serif}.logo b{color:var(--acc)}
+.chip{color:var(--mute);font-size:14px}
+nav{display:flex;gap:6px;margin-bottom:14px}
+nav button{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 4px;font:inherit;font-size:15px}
+nav button.on{background:var(--acc);color:#1a1210;border-color:var(--acc);font-weight:700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+h2{margin:0 0 6px;font:700 24px "Space Grotesk",system-ui,sans-serif}
+p{margin:6px 0;color:var(--mute)}
+.btn{background:#2a2522;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;font-weight:600;width:100%}
+.btn.p{background:var(--acc);color:#1a1210;border-color:var(--acc)}
+.btn:disabled{opacity:.35}
+input[type=text]{width:100%;background:#2a2522;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;margin:10px 0}
+.sticks{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;min-height:46px}
+.stick{width:14px;height:44px;border-radius:5px;background:var(--acc)}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.msg{min-height:48px;font-size:18px;margin:8px 0}
+.ttt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ttt button{aspect-ratio:1;background:#2a2522;border:1px solid var(--line);border-radius:12px;color:var(--ink);font:700 48px "Space Grotesk",sans-serif;padding:0}
+.ttt .X{color:var(--acc)}.ttt .O{color:var(--blue)}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}
+.pad.n{grid-template-columns:repeat(3,1fr)}
+.pad button{background:#2a2522;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:20px 0;font:700 26px "Space Grotesk",sans-serif}
+.pad button.sel{background:var(--acc);color:#1a1210;border-color:var(--acc)}
+.stat{color:var(--mute);font-size:15px}.stat b{color:var(--ink)}
+.hide{display:none}
+</style></head><body><div class="wrap">
+<header><div class="logo">NJACK <b>ML</b></div><div class="chip" id="chip"></div></header>
+
+<div id="join" class="card">
+ <h2>Join the session</h2><p>Pick a name. It may appear on the big screen.</p>
+ <input type="text" id="name" maxlength="14" placeholder="Your name or nickname" autocomplete="off">
+ <button class="btn p" id="go">Let's play</button>
+</div>
+
+<div id="app" class="hide">
+<nav id="nav"><button data-t="nim" class="on">Nim</button><button data-t="ttt">Tic-tac-toe</button><button data-t="vote">Vote</button></nav>
+
+<div id="t-nim" class="card">
+ <h2>Beat the AI at Nim</h2>
+ <p>15 sticks. Take 1, 2 or 3 per turn. <b style="color:var(--ink)">Whoever takes the last stick loses.</b> You go first. It <i>can</i> be beaten.</p>
+ <div class="sticks" id="sticks"></div>
+ <div class="row3" id="takes"><button class="btn" data-n="1">Take 1</button><button class="btn" data-n="2">Take 2</button><button class="btn" data-n="3">Take 3</button></div>
+ <div class="msg" id="nmsg"></div>
+ <button class="btn p hide" id="nagain">Play again</button>
+ <button class="btn hide" id="nhint" style="margin-top:8px">Stuck? Show a hint</button>
+ <p class="stat" id="nstat"></p>
+</div>
+
+<div id="t-ttt" class="card hide">
+ <h2>Can you beat it at tic-tac-toe?</h2>
+ <p>You are X and go first. The AI looks at every future. A draw is a good result!</p>
+ <div class="ttt" id="ttt" style="margin:12px 0"></div>
+ <div class="msg" id="tmsg"></div>
+ <button class="btn p" id="tagain">New game</button>
+ <p class="stat" id="tstat"></p>
+</div>
+
+<div id="t-vote" class="card hide">
+ <h2>Vote</h2>
+ <p>Watch the main screen for the question, then tap your answer. You can change it while voting is open.</p>
+ <div class="pad" id="padL"></div>
+ <div class="pad n" id="padN"></div>
+ <p class="stat" id="vstat"></p>
+</div>
+<p class="stat" id="net"></p>
+</div>
+
+<script>
+// ===== Pure logic (no DOM). Tested in node, inlined into the lab page. =====
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+function winner(b) {
+  for (const [a, c, d] of LINES) if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
+  return b.includes(null) ? null : 'D';
+}
+function turnOf(b) {
+  let x = 0, o = 0;
+  for (const v of b) { if (v === 'X') x++; else if (v === 'O') o++; }
+  return x <= o ? 'X' : 'O';
+}
+const other = t => (t === 'X' ? 'O' : 'X');
+let NODES = 0;
+// Value from X's point of view: +1 X wins, 0 draw, -1 O wins.
+function minimax(b, turn, alpha, beta, prune) {
+  NODES++;
+  const w = winner(b);
+  if (w) return w === 'X' ? 1 : w === 'O' ? -1 : 0;
+  let best = turn === 'X' ? -2 : 2;
+  for (let i = 0; i < 9; i++) {
+    if (b[i]) continue;
+    b[i] = turn;
+    const v = minimax(b, other(turn), alpha, beta, prune);
+    b[i] = null;
+    if (turn === 'X') { if (v > best) best = v; if (best > alpha) alpha = best; }
+    else { if (v < best) best = v; if (best < beta) beta = best; }
+    if (prune && alpha >= beta) break;
+  }
+  return best;
+}
+// Exact value of every legal move for `turn`, from that player's own point of view (+1 = they win).
+function moveValues(b, turn) {
+  const out = [];
+  for (let i = 0; i < 9; i++) {
+    if (b[i]) continue;
+    b[i] = turn;
+    const v = minimax(b, other(turn), -2, 2, true);
+    b[i] = null;
+    out.push({ i, v: turn === 'X' ? v : -v });
+  }
+  return out;
+}
+function countNodes(b, turn, prune) {
+  NODES = 0;
+  minimax(b.slice(), turn, -2, 2, prune);
+  return NODES;
+}
+function randomPlayout(b, turn) {
+  b = b.slice();
+  let w;
+  while (!(w = winner(b))) {
+    const empt = [];
+    for (let i = 0; i < 9; i++) if (!b[i]) empt.push(i);
+    b[empt[Math.floor(Math.random() * empt.length)]] = turn;
+    turn = other(turn);
+  }
+  return w; // 'X' | 'O' | 'D'
+}
+// Monte Carlo move evaluation. reward for mover: win 1, draw .5, loss 0.
+// mode 'flat': N playouts per move. mode 'smart': same total budget, UCB1 allocation.
+function mcEvaluate(b, mover, N, mode) {
+  const moves = [];
+  for (let i = 0; i < 9; i++) if (!b[i]) moves.push(i);
+  const stat = moves.map(i => ({ i, n: 0, s: 0 }));
+  const sample = st => {
+    const c = b.slice(); c[st.i] = mover;
+    const w = winner(c) || randomPlayout(c, other(mover));
+    st.n++; st.s += w === mover ? 1 : w === 'D' ? 0.5 : 0;
+  };
+  if (mode === 'flat') {
+    for (const st of stat) for (let k = 0; k < N; k++) sample(st);
+  } else {
+    const budget = N * stat.length;
+    for (const st of stat) sample(st);
+    for (let t = stat.length; t < budget; t++) {
+      let best = null, bv = -1;
+      for (const st of stat) {
+        const u = st.s / st.n + 1.2 * Math.sqrt(Math.log(t) / st.n);
+        if (u > bv) { bv = u; best = st; }
+      }
+      sample(best);
+    }
+  }
+  return stat.map(st => ({ i: st.i, visits: st.n, rate: st.s / st.n }));
+}
+
+// ----- Snakes & Ladders -----
+const JUMPS = {
+  1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100,
+  16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78,
+};
+function step(s, d) { const t = s + d; if (t > 100) return s; return JUMPS[t] || t; }
+// Exact distribution over squares after k turns (index 0 = not yet on board).
+function distAfter(k) {
+  let p = new Array(101).fill(0); p[0] = 1;
+  for (let t = 0; t < k; t++) {
+    const q = new Array(101).fill(0);
+    for (let s = 0; s <= 100; s++) {
+      if (!p[s]) continue;
+      if (s === 100) { q[100] += p[s]; continue; }
+      for (let d = 1; d <= 6; d++) q[step(s, d)] += p[s] / 6;
+    }
+    p = q;
+  }
+  return p;
+}
+function playGame() { let s = 0, n = 0; while (s < 100) { s = step(s, 1 + Math.floor(Math.random() * 6)); n++; } return n; }
+function playerAfter(k) { let s = 0; for (let t = 0; t < k && s < 100; t++) s = step(s, 1 + Math.floor(Math.random() * 6)); return s; }
+
+if (typeof module !== 'undefined') module.exports = { winner, turnOf, minimax, moveValues, countNodes, mcEvaluate, distAfter, playGame, step, JUMPS };
+
+</script>
+<script>
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+const ROOM = (qs.get('r') || 'demo').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+const TOPIC = 'https://ntfy.sh/njackml-ai-' + ROOM;
+let cid, name = '';
+try { cid = localStorage.getItem('njCid'); name = localStorage.getItem('njName') || ''; } catch (e) {}
+if (!cid) { cid = Math.random().toString(36).slice(2, 10); try { localStorage.setItem('njCid', cid); } catch (e) {} }
+$('chip').textContent = 'room ' + ROOM;
+let netErr = 0;
+async function send(obj) {
+  obj.cid = cid; obj.name = name;
+  try { const r = await fetch(TOPIC, { method: 'POST', body: JSON.stringify(obj) }); if (!r.ok) throw new Error(r.status); $('net').textContent = ''; return true; }
+  catch (e) { $('net').textContent = 'Could not reach the server. Check your internet (mobile data works best). Your game still works.'; return false; }
+}
+function start() { $('join').classList.add('hide'); $('app').classList.remove('hide'); nimNew(); tNew(); send({ t: 'hi' }); }
+$('name').value = name;
+$('go').onclick = () => { const v = $('name').value.trim().slice(0, 14); if (!v) { $('name').focus(); return; } name = v; try { localStorage.setItem('njName', name); } catch (e) {} start(); };
+if (name) start();
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b)); ['nim', 'ttt', 'vote'].forEach(t => $('t-' + t).classList.toggle('hide', t !== b.dataset.t)); });
+
+/* ---- Nim ---- */
+let sticks = 15, nOver = false, nW = 0, nL = 0;
+function nimNew() { sticks = 15; nOver = false; $('nmsg').textContent = 'Your move.'; $('nagain').classList.add('hide'); nimDraw(); }
+function nimDraw() {
+  $('sticks').innerHTML = '<div class="stick"></div>'.repeat(sticks);
+  document.querySelectorAll('#takes button').forEach(b => b.disabled = nOver || +b.dataset.n > sticks);
+  $('nstat').innerHTML = `Games: <b>${nW + nL}</b> · wins: <b>${nW}</b>`;
+}
+function nimEnd(win) { nOver = true; win ? nW++ : nL++; $('nmsg').innerHTML = win ? '<b style="color:var(--win)">You beat the AI!</b> Do you see the trick?' : '<b style="color:var(--lose)">The AI wins.</b> Try again.'; $('nagain').classList.remove('hide'); if (!win) $('nhint').classList.remove('hide'); nimDraw(); send({ t: 's', game: 'nim', res: win ? 'win' : 'loss' }); }
+document.querySelectorAll('#takes button').forEach(b => b.onclick = () => {
+  if (nOver) return; sticks -= +b.dataset.n;
+  if (sticks === 0) return nimEnd(false);
+  nimDraw(); $('nmsg').textContent = 'AI is thinking…'; document.querySelectorAll('#takes button').forEach(x => x.disabled = true);
+  setTimeout(() => { let t = (sticks - 1) % 4; if (t === 0) t = 1 + Math.floor(Math.random() * Math.min(3, sticks)); sticks -= t; $('nmsg').textContent = `The AI took ${t}. Your move.`; if (sticks === 0) return nimEnd(true); nimDraw(); }, 700);
+});
+$('nagain').onclick = nimNew;
+$('nhint').onclick = () => { $('nmsg').innerHTML = 'Hint: try to leave <b>13, 9, 5 or 1</b> sticks for the AI after your move.'; };
+
+/* ---- Tic-tac-toe ---- */
+let tb, tOver, tD = 0, tL = 0, tW = 0; const tc = [];
+for (let i = 0; i < 9; i++) { const c = document.createElement('button'); c.onclick = () => tHuman(i); $('ttt').appendChild(c); tc.push(c); }
+function tNew() { tb = Array(9).fill(null); tOver = false; $('tmsg').textContent = 'Your move (X).'; tDraw(); }
+function tDraw() { tc.forEach((c, i) => { c.textContent = tb[i] || ''; c.className = tb[i] || ''; }); $('tstat').innerHTML = `Games: <b>${tW + tD + tL}</b> · draws: <b>${tD}</b> · losses: <b>${tL}</b> · wins: <b>${tW}</b>`; }
+function tFinish() { const w = winner(tb); if (!w) return false; tOver = true; if (w === 'X') { tW++; $('tmsg').textContent = 'You WON?! Tell the speaker.'; } else if (w === 'O') { tL++; $('tmsg').textContent = 'The AI wins.'; } else { tD++; $('tmsg').textContent = 'A draw. Best possible result!'; } tDraw(); send({ t: 's', game: 'ttt', res: w === 'X' ? 'win' : w === 'O' ? 'loss' : 'draw' }); return true; }
+function tHuman(i) { if (tOver || tb[i]) return; tb[i] = 'X'; tDraw(); if (tFinish()) return; $('tmsg').textContent = 'AI is thinking…'; setTimeout(() => { const mv = moveValues(tb.slice(), 'O'), best = Math.max(...mv.map(m => m.v)), c = mv.filter(m => m.v === best); tb[c[Math.floor(Math.random() * c.length)].i] = 'O'; tDraw(); if (!tFinish()) $('tmsg').textContent = 'Your move (X).'; }, 500); }
+$('tagain').onclick = tNew;
+
+/* ---- Vote ---- */
+let sel = null;
+function mkPad(el, items) { items.forEach(v => { const b = document.createElement('button'); b.textContent = v; b.onclick = async () => { sel = v; document.querySelectorAll('.pad button').forEach(x => x.classList.toggle('sel', x.textContent === v)); $('vstat').textContent = 'Sending…'; const ok = await send({ t: 'v', choice: v }); $('vstat').innerHTML = ok ? `Sent <b>${v}</b> ✓ Tap another to change.` : 'Not sent. Check connection and tap again.'; }; el.appendChild(b); }); }
+mkPad($('padL'), ['A', 'B', 'C', 'D']); mkPad($('padN'), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+</script></div></body></html>
