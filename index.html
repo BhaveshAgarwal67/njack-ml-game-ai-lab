@@ -177,7 +177,7 @@ kbd{background:#2a2522;border:1px solid var(--line);border-radius:5px;padding:0 
    <div class="stat" id="vTotal"></div>
   </div>
   <div class="card" style="margin-top:14px">
-   <div style="font:700 22px 'Space Grotesk',sans-serif;margin-bottom:6px">Beat the AI scoreboard</div>
+   <div style="font:700 22px 'Space Grotesk',sans-serif;margin-bottom:6px">Leaderboard (best score per game, summed)</div>
    <div id="lb"></div>
   </div>
  </div>
@@ -501,9 +501,7 @@ mcRender();
 /* ---------- 6. Live class game ---------- */
 const PLAY_BASE = 'https://bhaveshagarwal67.github.io/njack-ml-game-ai-lab/play.html';
 let room = (new URLSearchParams(location.search).get('r') || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12), es = null, liveInit = false;
-if (!room) { try { room = localStorage.getItem('njRoom') || ''; } catch (e) {} }
-if (!room) room = Math.random().toString(36).slice(2, 7);
-try { localStorage.setItem('njRoom', room); } catch (e) {}
+if (!room) room = 'njackml';
 let L;
 function liveReset() { L = { seen: new Set(), open: false, votes: {}, players: {}, sc: {} }; }
 function liveProcess(m) {
@@ -515,7 +513,7 @@ function liveProcess(m) {
   else if (d.cid) {
     L.players[d.cid] = d.name || 'anon';
     if (d.t === 'v' && L.open) L.votes[d.cid] = d.choice;
-    if (d.t === 's') { const p = L.sc[d.cid] || (L.sc[d.cid] = { name: d.name || 'anon', nim: { w: 0, n: 0 }, ttt: { w: 0, d: 0, n: 0 } }); p.name = d.name || p.name; const g = p[d.game]; if (g) { g.n++; if (d.res === 'win') g.w++; if (d.res === 'draw') g.d++; } }
+    if (d.t === 'p') { const p = L.sc[d.cid] || (L.sc[d.cid] = { name: d.name || 'anon', best: {}, res: {} }); p.name = d.name || p.name; p.best[d.game] = Math.max(p.best[d.game] || 0, d.pts || 0); if (d.res) (p.res[d.game] = p.res[d.game] || []).push(d.res); }
   }
 }
 function liveRender() {
@@ -525,9 +523,11 @@ function liveRender() {
   const mx = Math.max(1, ...Object.values(cnt)), show = keys.filter(k => 'ABCD'.includes(k) || cnt[k]);
   $('vBars').innerHTML = show.map(k => `<div style="display:flex;align-items:center;gap:10px;margin:5px 0"><b style="width:22px;font-size:22px">${k}</b><div style="flex:1;background:#2a2522;border-radius:8px;height:30px"><div style="width:${(cnt[k] || 0) / mx * 100}%;background:var(--acc);height:30px;border-radius:8px;transition:width .3s"></div></div><b style="width:40px;font-size:22px;text-align:right">${cnt[k] || 0}</b></div>`).join('');
   $('vTotal').textContent = tot + ' vote' + (tot === 1 ? '' : 's') + ' · ' + Object.keys(L.players).length + ' phones joined';
-  const P = Object.values(L.sc), nimP = P.filter(p => p.nim.n), tttP = P.filter(p => p.ttt.n), nimWin = nimP.filter(p => p.nim.w), tttWin = tttP.filter(p => p.ttt.w), tttDraw = tttP.filter(p => p.ttt.d);
-  const top = nimWin.sort((a, b) => b.nim.w - a.nim.w).slice(0, 5);
-  $('lb').innerHTML = `<div style="font-size:19px"><b>Nim:</b> ${nimWin.length} of ${nimP.length} players beat the AI</div><div style="font-size:19px"><b>Tic-tac-toe:</b> ${tttWin.length} of ${tttP.length} players beat the AI &middot; ${tttDraw.length} forced a draw</div>` + (top.length ? '<table style="margin-top:8px"><tr><th>Nim winners</th><th>Wins</th></tr>' + top.map(p => `<tr><td>${p.name.replace(/[<>&]/g, '')}</td><td>${p.nim.w}</td></tr>`).join('') + '</table>' : '<div class="stat" style="margin-top:6px">No winners yet.</div>');
+  const P = Object.values(L.sc).map(p => ({ name: (p.name || 'anon').replace(/[<>&]/g, ''), best: p.best, tot: Object.values(p.best).reduce((x, y) => x + y, 0), res: p.res })).sort((x, y) => y.tot - x.tot);
+  const played = g => P.filter(p => p.best[g] !== undefined).length, nimWin = P.filter(p => (p.res.nim || []).includes('win')).length, tttWin = P.filter(p => (p.res.ttt || []).includes('win')).length, tttDraw = P.filter(p => (p.res.ttt || []).includes('draw')).length;
+  const col = g => { const t = P.filter(p => p.best[g]).sort((x, y) => y.best[g] - x.best[g])[0]; return t ? `${t.name} (${t.best[g]})` : '–'; };
+  $('lb').innerHTML = (P.length ? '<table style="width:100%;font-size:21px"><tr><th>#</th><th>Player</th><th>Puzzles</th><th>Risk</th><th>Odds</th><th>Nim</th><th>TTT</th><th>Total</th></tr>' + P.slice(0, 8).map((p, i) => `<tr${i === 0 ? ' class="best"' : ''}><td>${i + 1}</td><td>${p.name}</td>` + ['puz', 'risk', 'odds', 'nim', 'ttt'].map(g => `<td>${p.best[g] === undefined ? '·' : p.best[g]}</td>`).join('') + `<td><b>${p.tot}</b></td></tr>`).join('') + '</table>' : '<div class="stat">Waiting for scores…</div>')
+    + `<div class="stat" style="margin-top:10px">Played: puzzles ${played('puz')} · risk ${played('risk')} · odds ${played('odds')} · nim ${played('nim')} · ttt ${played('ttt')}</div><div class="stat">Nim beaten by <b>${nimWin}</b> · tic-tac-toe: <b>${tttWin}</b> wins, <b>${tttDraw}</b> forced a draw</div><div class="stat">Best: puzzles ${col('puz')} · risk ${col('risk')} · odds ${col('odds')}</div>`;
 }
 function liveSend(obj) { return fetch('https://ntfy.sh/njackml-ai-' + room, { method: 'POST', body: JSON.stringify(obj) }).catch(() => $('liveStat').textContent = 'Could not send. Check internet.'); }
 function liveConnect() {
@@ -541,7 +541,7 @@ function liveConnect() {
 }
 function initLive() { if (liveInit) return; liveInit = true; liveConnect(); }
 $('vOpen').onclick = () => liveSend({ t: 'open' }); $('vClose').onclick = () => liveSend({ t: 'close' }); $('vClear').onclick = () => liveSend({ t: 'clear' });
-$('newRoom').onclick = () => { room = Math.random().toString(36).slice(2, 7); try { localStorage.setItem('njRoom', room); } catch (e) {} liveConnect(); };
+$('newRoom').onclick = () => { room = Math.random().toString(36).slice(2, 7); liveConnect(); };
 liveReset();
 show(0);
 </script></body></html>

@@ -2,51 +2,115 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>NJACK ML Play</title>
 <style>
-:root{--bg:#141211;--panel:#1d1a18;--line:#35302c;--ink:#f3ece6;--mute:#a79c93;--acc:#F08A55;--win:#6fcf97;--lose:#eb6b6b;--blue:#6aa9ff}
+:root{--bg:#141211;--panel:#1d1a18;--line:#35302c;--ink:#f3ece6;--mute:#a79c93;--acc:#F08A55;--win:#6fcf97;--lose:#eb6b6b;--blue:#6aa9ff;--gold:#e8c468}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:0 16px 40px}
 .wrap{max-width:460px;margin:0 auto}
 header{display:flex;justify-content:space-between;align-items:center;padding:14px 0}
 .logo{font:700 20px "Space Grotesk",system-ui,sans-serif}.logo b{color:var(--acc)}
-.chip{color:var(--mute);font-size:14px}
-nav{display:flex;gap:6px;margin-bottom:14px}
-nav button{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 4px;font:inherit;font-size:15px}
+.chip{color:var(--mute);font-size:14px;text-align:right}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+nav button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 2px;font:inherit;font-size:14px;line-height:1.2}
 nav button.on{background:var(--acc);color:#1a1210;border-color:var(--acc);font-weight:700}
+nav button small{display:block;opacity:.7;font-size:11px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
-h2{margin:0 0 6px;font:700 24px "Space Grotesk",system-ui,sans-serif}
+h2{margin:0 0 6px;font:700 23px "Space Grotesk",system-ui,sans-serif}
 p{margin:6px 0;color:var(--mute)}
 .btn{background:#2a2522;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;font-weight:600;width:100%}
 .btn.p{background:var(--acc);color:#1a1210;border-color:var(--acc)}
 .btn:disabled{opacity:.35}
 input[type=text]{width:100%;background:#2a2522;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;margin:10px 0}
+input[type=range]{width:100%;accent-color:var(--acc);margin:14px 0}
 .sticks{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;min-height:46px}
 .stick{width:14px;height:44px;border-radius:5px;background:var(--acc)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .msg{min-height:48px;font-size:18px;margin:8px 0}
-.ttt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ttt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
 .ttt button{aspect-ratio:1;background:#2a2522;border:1px solid var(--line);border-radius:12px;color:var(--ink);font:700 48px "Space Grotesk",sans-serif;padding:0}
-.ttt .X{color:var(--acc)}.ttt .O{color:var(--blue)}
+.ttt .X{color:var(--acc)}.ttt .O{color:var(--blue)}.ttt .good{outline:3px solid var(--win)}.ttt .bad{outline:3px solid var(--lose)}
 .pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}
 .pad.n{grid-template-columns:repeat(3,1fr)}
 .pad button{background:#2a2522;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:20px 0;font:700 26px "Space Grotesk",sans-serif}
 .pad button.sel{background:var(--acc);color:#1a1210;border-color:var(--acc)}
 .stat{color:var(--mute);font-size:15px}.stat b{color:var(--ink)}
 .hide{display:none}
+.timer{height:8px;background:#2a2522;border-radius:6px;overflow:hidden;margin:10px 0}.timer div{height:8px;background:var(--acc);width:100%}
+.big{font:700 44px "Space Grotesk",sans-serif;color:var(--acc);text-align:center}
+.offer{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.offer button{padding:18px 8px;line-height:1.3}
+.offer b{font-size:24px;display:block;color:var(--ink)}
+.right{color:var(--win)}.wrong{color:var(--lose)}
 </style></head><body><div class="wrap">
 <header><div class="logo">NJACK <b>ML</b></div><div class="chip" id="chip"></div></header>
 
 <div id="join" class="card">
- <h2>Join the session</h2><p>Pick a name. It may appear on the big screen.</p>
- <input type="text" id="name" maxlength="14" placeholder="Your name or nickname" autocomplete="off">
+ <h2>Join the session</h2><p>Pick a nickname. It may appear on the big screen. Score points across all the games to top the leaderboard.</p>
+ <input type="text" id="name" maxlength="14" placeholder="Your nickname" autocomplete="off">
  <button class="btn p" id="go">Let's play</button>
 </div>
 
 <div id="app" class="hide">
-<nav id="nav"><button data-t="nim" class="on">Nim</button><button data-t="ttt">Tic-tac-toe</button><button data-t="vote">Vote</button></nav>
+<nav id="nav">
+ <button data-t="puz" class="on">Minimax<small>Puzzles</small></button>
+ <button data-t="risk">Risk Rush<small>Expectimax</small></button>
+ <button data-t="odds">Odds Guess<small>Monte Carlo</small></button>
+ <button data-t="nim">Beat the AI<small>Nim</small></button>
+ <button data-t="ttt">Tic-tac-toe<small>vs AI</small></button>
+ <button data-t="vote">Vote<small>live</small></button>
+</nav>
+<div class="stat" id="total" style="margin-bottom:10px"></div>
 
-<div id="t-nim" class="card">
+<!-- Minimax puzzles -->
+<div id="t-puz" class="card">
+ <h2>Minimax Puzzles</h2>
+ <p>5 positions. You are X. Find the move the AI would pick. Faster correct answers score more (up to 150).</p>
+ <div id="puzPlay" class="hide">
+  <div class="stat" id="puzHead"></div><div class="timer"><div id="puzBar"></div></div>
+  <div class="ttt" id="puzBoard"></div>
+  <div class="msg" id="puzMsg"></div>
+  <button class="btn p hide" id="puzNext">Next</button>
+ </div>
+ <button class="btn p" id="puzStart">Start</button>
+ <div class="msg" id="puzEnd"></div>
+</div>
+
+<!-- Risk Rush -->
+<div id="t-risk" class="card hide">
+ <h2>Risk Rush</h2>
+ <p>6 rounds. Take the safe points or gamble. Smart choices (higher expected value) earn +5 bonus each.</p>
+ <div id="riskPlay" class="hide">
+  <div class="stat" id="riskHead"></div>
+  <div class="offer"><button class="btn" id="rSafe"></button><button class="btn" id="rGamble"></button></div>
+  <div class="msg" id="riskMsg"></div>
+  <button class="btn p hide" id="riskNext">Next round</button>
+ </div>
+ <button class="btn p" id="riskStart">Start</button>
+ <div class="msg" id="riskEnd"></div>
+</div>
+
+<!-- Odds guess -->
+<div id="t-odds" class="card hide">
+ <h2>Odds Guess</h2>
+ <p>4 questions. Closest guesses score most (up to 100 each). No maths needed, just a gut feel.</p>
+ <div id="oddsPlay" class="hide">
+  <div class="stat" id="oddsHead"></div>
+  <div id="oddsBoard" class="ttt hide" style="max-width:220px"></div>
+  <div class="msg" id="oddsQ" style="color:var(--ink)"></div>
+  <div class="big" id="oddsVal"></div>
+  <input type="range" id="oddsSlide">
+  <button class="btn p" id="oddsGo">Lock in</button>
+  <div class="msg" id="oddsMsg"></div>
+  <button class="btn p hide" id="oddsNext">Next</button>
+ </div>
+ <button class="btn p" id="oddsStart">Start</button>
+ <div class="msg" id="oddsEnd"></div>
+</div>
+
+<!-- Nim -->
+<div id="t-nim" class="card hide">
  <h2>Beat the AI at Nim</h2>
- <p>15 sticks. Take 1, 2 or 3 per turn. <b style="color:var(--ink)">Whoever takes the last stick loses.</b> You go first. It <i>can</i> be beaten.</p>
+ <p>15 sticks. Take 1, 2 or 3 per turn. <b style="color:var(--ink)">Whoever takes the last stick loses.</b> You go first. It <i>can</i> be beaten. Win = 100 points.</p>
  <div class="sticks" id="sticks"></div>
  <div class="row3" id="takes"><button class="btn" data-n="1">Take 1</button><button class="btn" data-n="2">Take 2</button><button class="btn" data-n="3">Take 3</button></div>
  <div class="msg" id="nmsg"></div>
@@ -55,15 +119,17 @@ input[type=text]{width:100%;background:#2a2522;color:var(--ink);border:1px solid
  <p class="stat" id="nstat"></p>
 </div>
 
+<!-- Tic-tac-toe -->
 <div id="t-ttt" class="card hide">
- <h2>Can you beat it at tic-tac-toe?</h2>
- <p>You are X and go first. The AI looks at every future. A draw is a good result!</p>
- <div class="ttt" id="ttt" style="margin:12px 0"></div>
+ <h2>Tic-tac-toe vs the AI</h2>
+ <p>You are X and go first. A draw = 50 points. A win = 200 (good luck).</p>
+ <div class="ttt" id="ttt"></div>
  <div class="msg" id="tmsg"></div>
  <button class="btn p" id="tagain">New game</button>
  <p class="stat" id="tstat"></p>
 </div>
 
+<!-- Vote -->
 <div id="t-vote" class="card hide">
  <h2>Vote</h2>
  <p>Watch the main screen for the question, then tap your answer. You can change it while voting is open.</p>
@@ -190,23 +256,91 @@ if (typeof module !== 'undefined') module.exports = { winner, turnOf, minimax, m
 <script>
 const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
-const ROOM = (qs.get('r') || 'demo').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+const ROOM = (qs.get('r') || 'njackml').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
 const TOPIC = 'https://ntfy.sh/njackml-ai-' + ROOM;
 let cid, name = '';
 try { cid = localStorage.getItem('njCid'); name = localStorage.getItem('njName') || ''; } catch (e) {}
 if (!cid) { cid = Math.random().toString(36).slice(2, 10); try { localStorage.setItem('njCid', cid); } catch (e) {} }
 $('chip').textContent = 'room ' + ROOM;
-let netErr = 0;
+const best = {}; // best score per game on this phone
 async function send(obj) {
   obj.cid = cid; obj.name = name;
   try { const r = await fetch(TOPIC, { method: 'POST', body: JSON.stringify(obj) }); if (!r.ok) throw new Error(r.status); $('net').textContent = ''; return true; }
   catch (e) { $('net').textContent = 'Could not reach the server. Check your internet (mobile data works best). Your game still works.'; return false; }
 }
+function score(game, pts, extra) { best[game] = Math.max(best[game] || 0, pts); const t = Object.values(best).reduce((a, b) => a + b, 0); $('total').innerHTML = 'Your total: <b>' + t + ' points</b>'; send(Object.assign({ t: 'p', game, pts }, extra || {})); }
 function start() { $('join').classList.add('hide'); $('app').classList.remove('hide'); nimNew(); tNew(); send({ t: 'hi' }); }
 $('name').value = name;
 $('go').onclick = () => { const v = $('name').value.trim().slice(0, 14); if (!v) { $('name').focus(); return; } name = v; try { localStorage.setItem('njName', name); } catch (e) {} start(); };
 if (name) start();
-document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b)); ['nim', 'ttt', 'vote'].forEach(t => $('t-' + t).classList.toggle('hide', t !== b.dataset.t)); });
+const GAMES = ['puz', 'risk', 'odds', 'nim', 'ttt', 'vote'];
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b)); GAMES.forEach(t => $('t-' + t).classList.toggle('hide', t !== b.dataset.t)); });
+const draw = (el, b, cls) => { el.innerHTML = ''; b.forEach((v, i) => { const c = document.createElement('button'); c.textContent = v || ''; c.className = (v || '') + ' ' + ((cls && cls[i]) || ''); c.dataset.i = i; el.appendChild(c); }); };
+
+/* ---- Minimax puzzles ---- */
+const PUZ = [
+  { b: [null, null, null, 'O', 'X', null, 'O', null, 'X'], best: 0, why: 'X wins on the spot: the diagonal is X-X-?.' },
+  { b: [null, 'O', 'O', null, 'X', null, null, 'X', null], best: 0, why: 'O threatens the top row. X must block the top-left.' },
+  { b: ['O', null, 'X', 'X', 'O', null, null, null, null], best: 8, why: 'O threatens the diagonal. Block the bottom-right.' },
+  { b: [null, 'X', null, null, 'O', 'X', null, 'O', null], best: 2, why: 'A fork! Top-right creates two winning threats at once, and O can only block one.' },
+  { b: [null, 'X', 'O', null, null, 'O', 'X', null, null], best: 8, why: 'O threatens the right column. Blocking at the bottom-right also builds X’s own threat.' },
+];
+let pi = 0, pTotal = 0, pT0 = 0, pTimer = null, pDone = false;
+const PT = 15;
+function puzShow() {
+  pDone = false; $('puzHead').textContent = `Puzzle ${pi + 1} of ${PUZ.length} · total ${pTotal}`; $('puzMsg').textContent = 'You are X. Where do you play?'; $('puzNext').classList.add('hide');
+  draw($('puzBoard'), PUZ[pi].b); pT0 = Date.now(); clearInterval(pTimer);
+  pTimer = setInterval(() => { const left = PT - (Date.now() - pT0) / 1000; $('puzBar').style.width = Math.max(0, left / PT * 100) + '%'; if (left <= 0) puzAnswer(-1); }, 100);
+}
+function puzAnswer(i) {
+  if (pDone) return; pDone = true; clearInterval(pTimer);
+  const P = PUZ[pi], ok = i === P.best, left = Math.max(0, PT - (Date.now() - pT0) / 1000), pts = ok ? 100 + Math.round(50 * left / PT) : 0; pTotal += pts;
+  const cls = {}; cls[P.best] = 'good'; if (!ok && i >= 0) cls[i] = 'bad'; draw($('puzBoard'), P.b, cls);
+  $('puzMsg').innerHTML = (ok ? `<b class="right">Correct! +${pts}</b>` : `<b class="wrong">${i < 0 ? 'Out of time.' : 'Not quite.'}</b>`) + '<br><span class="stat">' + P.why + '</span>';
+  $('puzNext').textContent = pi === PUZ.length - 1 ? 'Finish' : 'Next'; $('puzNext').classList.remove('hide');
+}
+$('puzBoard').onclick = e => { const b = e.target.closest('button'); if (b && !PUZ[pi].b[+b.dataset.i]) puzAnswer(+b.dataset.i); };
+$('puzStart').onclick = () => { pi = 0; pTotal = 0; $('puzEnd').textContent = ''; $('puzStart').classList.add('hide'); $('puzPlay').classList.remove('hide'); puzShow(); };
+$('puzNext').onclick = () => { if (pi < PUZ.length - 1) { pi++; puzShow(); } else { $('puzPlay').classList.add('hide'); $('puzStart').classList.remove('hide'); $('puzStart').textContent = 'Play again'; $('puzEnd').innerHTML = `Final: <b>${pTotal}</b> of 750. The AI gets all five by checking every future.`; score('puz', pTotal); } };
+
+/* ---- Risk Rush ---- */
+const OFFERS = [[5, 12, 0.5], [8, 20, 0.3], [4, 10, 0.5], [10, 30, 0.3], [6, 9, 0.7], [3, 25, 0.1]];
+let ri = 0, rPts = 0, rSmart = 0, rDone = false;
+function riskShow() {
+  rDone = false; const [s, g, p] = OFFERS[ri]; $('riskHead').textContent = `Round ${ri + 1} of ${OFFERS.length} · points so far ${rPts}`;
+  $('rSafe').innerHTML = `Safe<b>+${s}</b>for sure`; $('rGamble').innerHTML = `Gamble<b>+${g}</b>${Math.round(p * 100)}% chance, else 0`; $('riskMsg').textContent = 'Your choice?'; $('riskNext').classList.add('hide');
+}
+function riskPick(gamble) {
+  if (rDone) return; rDone = true; const [s, g, p] = OFFERS[ri], ev = p * g, smart = gamble ? ev > s : ev < s; if (smart) rSmart++;
+  let msg; if (gamble) { const win = Math.random() < p; rPts += win ? g : 0; msg = win ? `<b class="right">You won +${g}!</b>` : '<b class="wrong">No luck: 0.</b>'; } else { rPts += s; msg = `Safe: +${s}.`; }
+  $('riskMsg').innerHTML = msg + `<br><span class="stat">Average of the gamble = ${(ev).toFixed(1)} vs safe ${s}. Expectimax picks <b>${ev > s ? 'gamble' : 'safe'}</b>. ${smart ? 'Smart pick! +5' : ''}</span>`;
+  $('riskNext').textContent = ri === OFFERS.length - 1 ? 'Finish' : 'Next round'; $('riskNext').classList.remove('hide');
+}
+$('rSafe').onclick = () => riskPick(false); $('rGamble').onclick = () => riskPick(true);
+$('riskStart').onclick = () => { ri = 0; rPts = 0; rSmart = 0; $('riskEnd').textContent = ''; $('riskStart').classList.add('hide'); $('riskPlay').classList.remove('hide'); riskShow(); };
+$('riskNext').onclick = () => { if (ri < OFFERS.length - 1) { ri++; riskShow(); } else { const tot = rPts + 5 * rSmart; $('riskPlay').classList.add('hide'); $('riskStart').classList.remove('hide'); $('riskStart').textContent = 'Play again'; $('riskEnd').innerHTML = `Points won: <b>${rPts}</b> + smart bonus <b>${5 * rSmart}</b> (${rSmart} of 6 smart picks) = <b>${tot}</b>`; score('risk', tot); } };
+
+/* ---- Odds guess ---- */
+function randX(b, t) { const w = winner(b); if (w) return w === 'X' ? 1 : 0; let s = 0, n = 0; for (let i = 0; i < 9; i++) { if (b[i]) continue; b[i] = t; s += randX(b, other(t)); b[i] = null; n++; } return s / n; }
+const OB1 = ['X', null, 'O', null, 'X', null, null, null, 'O'], OB2 = ['X', 'O', null, null, 'O', null, null, null, 'X'];
+let avgRolls = 0; { let t = 0; for (let i = 0; i < 6000; i++) t += playGame(); avgRolls = t / 6000; }
+const OQ = [
+  { q: 'Both players now move completely at random. How often does X win?', unit: '%', min: 0, max: 100, step: 1, def: 50, ans: Math.round(randX(OB1.slice(), 'X') * 100), board: OB1, scale: 2 },
+  { q: 'Same question for this position (random moves for both). How often does X win?', unit: '%', min: 0, max: 100, step: 1, def: 50, ans: Math.round(randX(OB2.slice(), 'X') * 100), board: OB2, scale: 2 },
+  { q: 'Snakes & Ladders (the lab board): on average, how many dice rolls to reach 100?', unit: ' rolls', min: 10, max: 100, step: 1, def: 50, ans: Math.round(avgRolls), scale: 4 },
+  { q: 'Flip a coin 10 times. How often will you get 7 or more heads?', unit: '%', min: 0, max: 100, step: 1, def: 50, ans: 17, scale: 2 },
+];
+let oi = 0, oTotal = 0;
+function oddsShow() {
+  const Q = OQ[oi]; $('oddsHead').textContent = `Question ${oi + 1} of ${OQ.length} · total ${oTotal}`; $('oddsQ').textContent = Q.q;
+  if (Q.board) { $('oddsBoard').classList.remove('hide'); draw($('oddsBoard'), Q.board); $('oddsBoard').querySelectorAll('button').forEach(b => { b.style.fontSize = '28px'; b.disabled = true; }); } else $('oddsBoard').classList.add('hide');
+  const s = $('oddsSlide'); s.min = Q.min; s.max = Q.max; s.step = Q.step; s.value = Q.def; s.disabled = false; $('oddsVal').textContent = Q.def + Q.unit; $('oddsGo').classList.remove('hide'); $('oddsNext').classList.add('hide'); $('oddsMsg').textContent = '';
+}
+$('oddsSlide').oninput = () => { $('oddsVal').textContent = $('oddsSlide').value + OQ[oi].unit; };
+$('oddsGo').onclick = () => { const Q = OQ[oi], g = +$('oddsSlide').value, err = Math.abs(g - Q.ans), pts = Math.max(0, Math.round(100 - Q.scale * err)); oTotal += pts; $('oddsSlide').disabled = true; $('oddsGo').classList.add('hide');
+  $('oddsMsg').innerHTML = `Answer: <b>${Q.ans}${Q.unit}</b> (you said ${g}). <b class="${pts > 60 ? 'right' : ''}">+${pts}</b>`; $('oddsNext').textContent = oi === OQ.length - 1 ? 'Finish' : 'Next'; $('oddsNext').classList.remove('hide'); };
+$('oddsStart').onclick = () => { oi = 0; oTotal = 0; $('oddsEnd').textContent = ''; $('oddsStart').classList.add('hide'); $('oddsPlay').classList.remove('hide'); oddsShow(); };
+$('oddsNext').onclick = () => { if (oi < OQ.length - 1) { oi++; oddsShow(); } else { $('oddsPlay').classList.add('hide'); $('oddsStart').classList.remove('hide'); $('oddsStart').textContent = 'Play again'; $('oddsEnd').innerHTML = `Final: <b>${oTotal}</b> of 400. A computer gets these by simulating thousands of random games. That is Monte Carlo.`; score('odds', oTotal); } };
 
 /* ---- Nim ---- */
 let sticks = 15, nOver = false, nW = 0, nL = 0;
@@ -216,7 +350,7 @@ function nimDraw() {
   document.querySelectorAll('#takes button').forEach(b => b.disabled = nOver || +b.dataset.n > sticks);
   $('nstat').innerHTML = `Games: <b>${nW + nL}</b> · wins: <b>${nW}</b>`;
 }
-function nimEnd(win) { nOver = true; win ? nW++ : nL++; $('nmsg').innerHTML = win ? '<b style="color:var(--win)">You beat the AI!</b> Do you see the trick?' : '<b style="color:var(--lose)">The AI wins.</b> Try again.'; $('nagain').classList.remove('hide'); if (!win) $('nhint').classList.remove('hide'); nimDraw(); send({ t: 's', game: 'nim', res: win ? 'win' : 'loss' }); }
+function nimEnd(win) { nOver = true; win ? nW++ : nL++; $('nmsg').innerHTML = win ? '<b class="right">You beat the AI! +100.</b> Do you see the trick?' : '<b class="wrong">The AI wins.</b> Try again.'; $('nagain').classList.remove('hide'); if (!win) $('nhint').classList.remove('hide'); nimDraw(); score('nim', win ? 100 : 0, { res: win ? 'win' : 'loss' }); }
 document.querySelectorAll('#takes button').forEach(b => b.onclick = () => {
   if (nOver) return; sticks -= +b.dataset.n;
   if (sticks === 0) return nimEnd(false);
@@ -227,16 +361,14 @@ $('nagain').onclick = nimNew;
 $('nhint').onclick = () => { $('nmsg').innerHTML = 'Hint: try to leave <b>13, 9, 5 or 1</b> sticks for the AI after your move.'; };
 
 /* ---- Tic-tac-toe ---- */
-let tb, tOver, tD = 0, tL = 0, tW = 0; const tc = [];
-for (let i = 0; i < 9; i++) { const c = document.createElement('button'); c.onclick = () => tHuman(i); $('ttt').appendChild(c); tc.push(c); }
+let tb, tOver, tD = 0, tL = 0, tW = 0;
 function tNew() { tb = Array(9).fill(null); tOver = false; $('tmsg').textContent = 'Your move (X).'; tDraw(); }
-function tDraw() { tc.forEach((c, i) => { c.textContent = tb[i] || ''; c.className = tb[i] || ''; }); $('tstat').innerHTML = `Games: <b>${tW + tD + tL}</b> · draws: <b>${tD}</b> · losses: <b>${tL}</b> · wins: <b>${tW}</b>`; }
-function tFinish() { const w = winner(tb); if (!w) return false; tOver = true; if (w === 'X') { tW++; $('tmsg').textContent = 'You WON?! Tell the speaker.'; } else if (w === 'O') { tL++; $('tmsg').textContent = 'The AI wins.'; } else { tD++; $('tmsg').textContent = 'A draw. Best possible result!'; } tDraw(); send({ t: 's', game: 'ttt', res: w === 'X' ? 'win' : w === 'O' ? 'loss' : 'draw' }); return true; }
-function tHuman(i) { if (tOver || tb[i]) return; tb[i] = 'X'; tDraw(); if (tFinish()) return; $('tmsg').textContent = 'AI is thinking…'; setTimeout(() => { const mv = moveValues(tb.slice(), 'O'), best = Math.max(...mv.map(m => m.v)), c = mv.filter(m => m.v === best); tb[c[Math.floor(Math.random() * c.length)].i] = 'O'; tDraw(); if (!tFinish()) $('tmsg').textContent = 'Your move (X).'; }, 500); }
+function tDraw() { draw($('ttt'), tb); $('tstat').innerHTML = `Games: <b>${tW + tD + tL}</b> · draws: <b>${tD}</b> · losses: <b>${tL}</b> · wins: <b>${tW}</b>`; }
+function tFinish() { const w = winner(tb); if (!w) return false; tOver = true; if (w === 'X') { tW++; $('tmsg').textContent = 'You WON?! Tell the speaker.'; } else if (w === 'O') { tL++; $('tmsg').textContent = 'The AI wins.'; } else { tD++; $('tmsg').textContent = 'A draw. Best possible result! +50'; } tDraw(); score('ttt', w === 'X' ? 200 : w === 'D' ? 50 : 0, { res: w === 'X' ? 'win' : w === 'O' ? 'loss' : 'draw' }); return true; }
+$('ttt').onclick = e => { const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i; if (tOver || tb[i]) return; tb[i] = 'X'; tDraw(); if (tFinish()) return; $('tmsg').textContent = 'AI is thinking…'; setTimeout(() => { const mv = moveValues(tb.slice(), 'O'), bv = Math.max(...mv.map(m => m.v)), c = mv.filter(m => m.v === bv); tb[c[Math.floor(Math.random() * c.length)].i] = 'O'; tDraw(); if (!tFinish()) $('tmsg').textContent = 'Your move (X).'; }, 500); };
 $('tagain').onclick = tNew;
 
 /* ---- Vote ---- */
-let sel = null;
-function mkPad(el, items) { items.forEach(v => { const b = document.createElement('button'); b.textContent = v; b.onclick = async () => { sel = v; document.querySelectorAll('.pad button').forEach(x => x.classList.toggle('sel', x.textContent === v)); $('vstat').textContent = 'Sending…'; const ok = await send({ t: 'v', choice: v }); $('vstat').innerHTML = ok ? `Sent <b>${v}</b> ✓ Tap another to change.` : 'Not sent. Check connection and tap again.'; }; el.appendChild(b); }); }
+function mkPad(el, items) { items.forEach(v => { const b = document.createElement('button'); b.textContent = v; b.onclick = async () => { document.querySelectorAll('.pad button').forEach(x => x.classList.toggle('sel', x.textContent === v)); $('vstat').textContent = 'Sending…'; const ok = await send({ t: 'v', choice: v }); $('vstat').innerHTML = ok ? `Sent <b>${v}</b> ✓ Tap another to change.` : 'Not sent. Check connection and tap again.'; }; el.appendChild(b); }); }
 mkPad($('padL'), ['A', 'B', 'C', 'D']); mkPad($('padN'), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
 </script></div></body></html>
