@@ -177,6 +177,12 @@ kbd{background:#2a2522;border:1px solid var(--line);border-radius:5px;padding:0 
    <div class="stat" id="vTotal"></div>
   </div>
   <div class="card" style="margin-top:14px">
+   <div style="font:700 22px 'Space Grotesk',sans-serif;margin-bottom:6px">Guess 2/3 of the average</div>
+   <div class="ctl"><button class="b p" id="gOpen">Open round</button><button class="b" id="gClose">Close &amp; reveal</button><span class="big" id="gState" style="font-size:22px"></span></div>
+   <div id="gBars"></div>
+   <div id="gRes" style="font-size:20px;margin-top:8px"></div>
+  </div>
+  <div class="card" style="margin-top:14px">
    <div style="font:700 22px 'Space Grotesk',sans-serif;margin-bottom:6px">Leaderboard (best score per game, summed)</div>
    <div id="lb"></div>
   </div>
@@ -503,16 +509,29 @@ const PLAY_BASE = 'https://bhaveshagarwal67.github.io/njack-ml-game-ai-lab/play.
 let room = (new URLSearchParams(location.search).get('r') || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12), es = null, liveInit = false;
 if (!room) room = 'njackml';
 let L;
-function liveReset() { L = { seen: new Set(), open: false, votes: {}, players: {}, sc: {} }; }
+function liveReset() { L = { seen: new Set(), open: false, votes: {}, players: {}, sc: {}, g: { open: false, guesses: {}, names: {}, rounds: [] } }; }
+function scOf(cid, name) { const p = L.sc[cid] || (L.sc[cid] = { name: name || 'anon', best: {}, res: {} }); if (name) p.name = name; return p; }
 function liveProcess(m) {
   if (L.seen.has(m.id)) return; L.seen.add(m.id);
   let d; try { d = JSON.parse(m.message); } catch (e) { return; }
   if (d.t === 'open') { L.open = true; L.votes = {}; }
   else if (d.t === 'close') L.open = false;
   else if (d.t === 'clear') L.votes = {};
+  else if (d.t === 'gopen') { L.g.open = true; L.g.guesses = {}; }
+  else if (d.t === 'gclose') {
+    if (L.g.open) {
+      L.g.open = false; const ids = Object.keys(L.g.guesses);
+      if (ids.length) {
+        const avg = ids.reduce((a, c) => a + L.g.guesses[c], 0) / ids.length, target = avg * 2 / 3, dmin = Math.min(...ids.map(c => Math.abs(L.g.guesses[c] - target))), winners = ids.filter(c => Math.abs(L.g.guesses[c] - target) === dmin);
+        ids.forEach(c => { const pts = Math.max(0, Math.round(100 - 2 * Math.abs(L.g.guesses[c] - target))) + (winners.includes(c) ? 50 : 0), sc = scOf(c, L.g.names[c]); sc.best.g23 = Math.max(sc.best.g23 || 0, pts); });
+        L.g.rounds.push({ n: ids.length, avg, target, winners: winners.map(c => L.g.names[c] || 'anon'), guess: L.g.guesses[winners[0]], vals: ids.map(c => L.g.guesses[c]) });
+      }
+    }
+  }
   else if (d.cid) {
     L.players[d.cid] = d.name || 'anon';
     if (d.t === 'v' && L.open) L.votes[d.cid] = d.choice;
+    if (d.t === 'g' && L.g.open) { L.g.guesses[d.cid] = Math.max(0, Math.min(100, Math.round(+d.n) || 0)); L.g.names[d.cid] = d.name || 'anon'; }
     if (d.t === 'p') { const p = L.sc[d.cid] || (L.sc[d.cid] = { name: d.name || 'anon', best: {}, res: {} }); p.name = d.name || p.name; p.best[d.game] = Math.max(p.best[d.game] || 0, d.pts || 0); if (d.res) (p.res[d.game] = p.res[d.game] || []).push(d.res); }
   }
 }
@@ -526,20 +545,28 @@ function liveRender() {
   const P = Object.values(L.sc).map(p => ({ name: (p.name || 'anon').replace(/[<>&]/g, ''), best: p.best, tot: Object.values(p.best).reduce((x, y) => x + y, 0), res: p.res })).sort((x, y) => y.tot - x.tot);
   const played = g => P.filter(p => p.best[g] !== undefined).length, nimWin = P.filter(p => (p.res.nim || []).includes('win')).length, tttWin = P.filter(p => (p.res.ttt || []).includes('win')).length, tttDraw = P.filter(p => (p.res.ttt || []).includes('draw')).length;
   const col = g => { const t = P.filter(p => p.best[g]).sort((x, y) => y.best[g] - x.best[g])[0]; return t ? `${t.name} (${t.best[g]})` : '–'; };
-  $('lb').innerHTML = (P.length ? '<table style="width:100%;font-size:21px"><tr><th>#</th><th>Player</th><th>Puzzles</th><th>Risk</th><th>Odds</th><th>Nim</th><th>TTT</th><th>Total</th></tr>' + P.slice(0, 8).map((p, i) => `<tr${i === 0 ? ' class="best"' : ''}><td>${i + 1}</td><td>${p.name}</td>` + ['puz', 'risk', 'odds', 'nim', 'ttt'].map(g => `<td>${p.best[g] === undefined ? '·' : p.best[g]}</td>`).join('') + `<td><b>${p.tot}</b></td></tr>`).join('') + '</table>' : '<div class="stat">Waiting for scores…</div>')
+  $('lb').innerHTML = (P.length ? '<table style="width:100%;font-size:21px"><tr><th>#</th><th>Player</th><th>Puzzles</th><th>Risk</th><th>Odds</th><th>2/3</th><th>Nim</th><th>TTT</th><th>Total</th></tr>' + P.slice(0, 8).map((p, i) => `<tr${i === 0 ? ' class="best"' : ''}><td>${i + 1}</td><td>${p.name}</td>` + ['puz', 'risk', 'odds', 'g23', 'nim', 'ttt'].map(g => `<td>${p.best[g] === undefined ? '·' : p.best[g]}</td>`).join('') + `<td><b>${p.tot}</b></td></tr>`).join('') + '</table>' : '<div class="stat">Waiting for scores…</div>')
     + `<div class="stat" style="margin-top:10px">Played: puzzles ${played('puz')} · risk ${played('risk')} · odds ${played('odds')} · nim ${played('nim')} · ttt ${played('ttt')}</div><div class="stat">Nim beaten by <b>${nimWin}</b> · tic-tac-toe: <b>${tttWin}</b> wins, <b>${tttDraw}</b> forced a draw</div><div class="stat">Best: puzzles ${col('puz')} · risk ${col('risk')} · odds ${col('odds')}</div>`;
+}
+function gRender() {
+  const g = L.g, vals = Object.values(g.guesses), last = g.rounds[g.rounds.length - 1];
+  $('gState').innerHTML = g.open ? '<span style="color:var(--win)">● ROUND ' + (g.rounds.length + 1) + ' OPEN</span>' : '<span style="color:var(--mute)">' + (g.rounds.length ? 'round ' + g.rounds.length + ' closed' : 'not started') + '</span>';
+  const src = g.open ? vals : (last ? last.vals : []), bins = new Array(10).fill(0); src.forEach(v => bins[Math.min(9, Math.floor(v / 10))]++); const mx = Math.max(1, ...bins);
+  $('gBars').innerHTML = '<div style="display:flex;align-items:flex-end;gap:6px;height:90px">' + bins.map((c, i) => `<div style="flex:1;text-align:center"><div style="background:var(--acc);height:${c / mx * 70}px;border-radius:5px 5px 0 0;min-height:${c ? 3 : 0}px"></div><div class="stat" style="font-size:12px">${i * 10}${i === 9 ? '+' : ''}</div></div>`).join('') + '</div><div class="stat">' + (g.open ? vals.length + ' numbers locked in (hidden target until you close)' : (last ? last.n + ' numbers' : 'Open a round, then tell the room to lock in.')) + '</div>';
+  $('gRes').innerHTML = !g.open && last ? `Average <b>${last.avg.toFixed(1)}</b> &rarr; 2/3 of it = <b style="color:var(--acc)">${last.target.toFixed(1)}</b><br>Winner: <b>${last.winners.map(w => w.replace(/[<>&]/g, '')).join(', ')}</b> (picked ${last.guess})` + (g.rounds.length > 1 ? '<div class="stat">Targets by round: ' + g.rounds.map(r => r.target.toFixed(1)).join(' → ') + '</div>' : '') : '';
 }
 function liveSend(obj) { return fetch('https://ntfy.sh/njackml-ai-' + room, { method: 'POST', body: JSON.stringify(obj) }).catch(() => $('liveStat').textContent = 'Could not send. Check internet.'); }
 function liveConnect() {
-  if (es) es.close(); liveReset(); liveRender();
+  if (es) es.close(); liveReset(); liveRender(); gRender();
   $('roomCode').textContent = room; const url = PLAY_BASE + '?r=' + room; $('joinUrl').textContent = url;
   $('qr').innerHTML = ''; if (typeof QRCode !== 'undefined') new QRCode($('qr'), { text: url, width: 220, height: 220 }); else $('qr').textContent = '(QR needs internet; type the link on a slide)';
   es = new EventSource('https://ntfy.sh/njackml-ai-' + room + '/sse?since=6h');
   es.onopen = () => $('liveStat').innerHTML = '<span style="color:var(--win)">● Connected</span>';
   es.onerror = () => $('liveStat').innerHTML = '<span style="color:var(--lose)">● Reconnecting…</span>';
-  es.onmessage = ev => { try { const m = JSON.parse(ev.data); if (m.event === 'message') { liveProcess(m); liveRender(); } } catch (e) {} };
+  es.onmessage = ev => { try { const m = JSON.parse(ev.data); if (m.event === 'message') { liveProcess(m); liveRender(); gRender(); } } catch (e) {} };
 }
 function initLive() { if (liveInit) return; liveInit = true; liveConnect(); }
+$('gOpen').onclick = () => liveSend({ t: 'gopen' }); $('gClose').onclick = () => liveSend({ t: 'gclose' });
 $('vOpen').onclick = () => liveSend({ t: 'open' }); $('vClose').onclick = () => liveSend({ t: 'close' }); $('vClear').onclick = () => liveSend({ t: 'clear' });
 $('newRoom').onclick = () => { room = Math.random().toString(36).slice(2, 7); liveConnect(); };
 liveReset();

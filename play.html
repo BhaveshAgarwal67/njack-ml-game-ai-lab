@@ -9,8 +9,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 Inter,system-u
 header{display:flex;justify-content:space-between;align-items:center;padding:14px 0}
 .logo{font:700 20px "Space Grotesk",system-ui,sans-serif}.logo b{color:var(--acc)}
 .chip{color:var(--mute);font-size:14px;text-align:right}
-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
-nav button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 2px;font:inherit;font-size:14px;line-height:1.2}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+nav button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 2px;font:inherit;font-size:13px;line-height:1.2}
 nav button.on{background:var(--acc);color:#1a1210;border-color:var(--acc);font-weight:700}
 nav button small{display:block;opacity:.7;font-size:11px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
@@ -55,6 +55,7 @@ input[type=range]{width:100%;accent-color:var(--acc);margin:14px 0}
  <button data-t="puz" class="on">Minimax<small>Puzzles</small></button>
  <button data-t="risk">Risk Rush<small>Expectimax</small></button>
  <button data-t="odds">Odds Guess<small>Monte Carlo</small></button>
+ <button data-t="g23">2/3 Game<small>game theory</small></button>
  <button data-t="nim">Beat the AI<small>Nim</small></button>
  <button data-t="ttt">Tic-tac-toe<small>vs AI</small></button>
  <button data-t="vote">Vote<small>live</small></button>
@@ -105,6 +106,16 @@ input[type=range]{width:100%;accent-color:var(--acc);margin:14px 0}
  </div>
  <button class="btn p" id="oddsStart">Start</button>
  <div class="msg" id="oddsEnd"></div>
+</div>
+
+<!-- 2/3 game -->
+<div id="t-g23" class="card hide">
+ <h2>Guess 2/3 of the average</h2>
+ <p>Pick a whole number from 0 to 100. The speaker averages everyone's numbers. <b style="color:var(--ink)">Whoever is closest to 2/3 of that average wins.</b> Wait for the speaker to open a round, then lock in. You can change your number until the round closes.</p>
+ <div class="big" id="gVal">50</div>
+ <input type="range" id="gSlide" min="0" max="100" value="50">
+ <button class="btn p" id="gGo">Lock in</button>
+ <p class="stat" id="gStat"></p>
 </div>
 
 <!-- Nim -->
@@ -272,7 +283,7 @@ function score(game, pts, extra) { best[game] = Math.max(best[game] || 0, pts); 
 function start() { $('join').classList.add('hide'); $('app').classList.remove('hide'); nimNew(); tNew(); send({ t: 'hi' }); }
 $('name').value = name;
 $('go').onclick = () => { const v = $('name').value.trim().slice(0, 14); if (!v) { $('name').focus(); return; } name = v; try { localStorage.setItem('njName', name); } catch (e) {} start(); };
-const GAMES = ['puz', 'risk', 'odds', 'nim', 'ttt', 'vote'];
+const GAMES = ['puz', 'risk', 'odds', 'g23', 'nim', 'ttt', 'vote'];
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b)); GAMES.forEach(t => $('t-' + t).classList.toggle('hide', t !== b.dataset.t)); });
 const draw = (el, b, cls) => { el.innerHTML = ''; b.forEach((v, i) => { const c = document.createElement('button'); c.textContent = v || ''; c.className = (v || '') + ' ' + ((cls && cls[i]) || ''); c.dataset.i = i; el.appendChild(c); }); };
 
@@ -366,6 +377,10 @@ function tDraw() { draw($('ttt'), tb); $('tstat').innerHTML = `Games: <b>${tW + 
 function tFinish() { const w = winner(tb); if (!w) return false; tOver = true; if (w === 'X') { tW++; $('tmsg').textContent = 'You WON?! Tell the speaker.'; } else if (w === 'O') { tL++; $('tmsg').textContent = 'The AI wins.'; } else { tD++; $('tmsg').textContent = 'A draw. Best possible result! +50'; } tDraw(); score('ttt', w === 'X' ? 200 : w === 'D' ? 50 : 0, { res: w === 'X' ? 'win' : w === 'O' ? 'loss' : 'draw' }); return true; }
 $('ttt').onclick = e => { const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i; if (tOver || tb[i]) return; tb[i] = 'X'; tDraw(); if (tFinish()) return; $('tmsg').textContent = 'AI is thinking…'; setTimeout(() => { const mv = moveValues(tb.slice(), 'O'), bv = Math.max(...mv.map(m => m.v)), c = mv.filter(m => m.v === bv); tb[c[Math.floor(Math.random() * c.length)].i] = 'O'; tDraw(); if (!tFinish()) $('tmsg').textContent = 'Your move (X).'; }, 500); };
 $('tagain').onclick = tNew;
+
+/* ---- 2/3 game ---- */
+$('gSlide').oninput = () => { $('gVal').textContent = $('gSlide').value; };
+$('gGo').onclick = async () => { const n = +$('gSlide').value; $('gStat').textContent = 'Sending…'; const ok = await send({ t: 'g', n }); $('gStat').innerHTML = ok ? `Locked in <b>${n}</b> ✓ You can change it until the round closes.` : 'Not sent. Check connection and tap again.'; };
 
 /* ---- Vote ---- */
 function mkPad(el, items) { items.forEach(v => { const b = document.createElement('button'); b.textContent = v; b.onclick = async () => { document.querySelectorAll('.pad button').forEach(x => x.classList.toggle('sel', x.textContent === v)); $('vstat').textContent = 'Sending…'; const ok = await send({ t: 'v', choice: v }); $('vstat').innerHTML = ok ? `Sent <b>${v}</b> ✓ Tap another to change.` : 'Not sent. Check connection and tap again.'; }; el.appendChild(b); }); }
