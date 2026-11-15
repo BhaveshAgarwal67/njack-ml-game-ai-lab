@@ -9,8 +9,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 Inter,system-u
 header{display:flex;justify-content:space-between;align-items:center;padding:14px 0}
 .logo{font:700 20px "Space Grotesk",system-ui,sans-serif}.logo b{color:var(--acc)}
 .chip{color:var(--mute);font-size:14px;text-align:right}
-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
-nav button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 2px;font:inherit;font-size:13px;line-height:1.2}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+nav button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 2px;font:inherit;font-size:14px;line-height:1.2}
 nav button.on{background:var(--acc);color:#1a1210;border-color:var(--acc);font-weight:700}
 nav button small{display:block;opacity:.7;font-size:11px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
@@ -53,7 +53,6 @@ input[type=range]{width:100%;accent-color:var(--acc);margin:14px 0}
 <div id="app" class="hide">
 <nav id="nav">
  <button data-t="puz" class="on">Minimax<small>Puzzles</small></button>
- <button data-t="risk">Risk Rush<small>Expectimax</small></button>
  <button data-t="odds">Odds Guess<small>Monte Carlo</small></button>
  <button data-t="g23">2/3 Game<small>game theory</small></button>
  <button data-t="nim">Beat the AI<small>Nim</small></button>
@@ -74,20 +73,6 @@ input[type=range]{width:100%;accent-color:var(--acc);margin:14px 0}
  </div>
  <button class="btn p" id="puzStart">Start</button>
  <div class="msg" id="puzEnd"></div>
-</div>
-
-<!-- Risk Rush -->
-<div id="t-risk" class="card hide">
- <h2>Risk Rush</h2>
- <p>6 rounds. Take the safe points or gamble. Smart choices (higher expected value) earn +5 bonus each.</p>
- <div id="riskPlay" class="hide">
-  <div class="stat" id="riskHead"></div>
-  <div class="offer"><button class="btn" id="rSafe"></button><button class="btn" id="rGamble"></button></div>
-  <div class="msg" id="riskMsg"></div>
-  <button class="btn p hide" id="riskNext">Next round</button>
- </div>
- <button class="btn p" id="riskStart">Start</button>
- <div class="msg" id="riskEnd"></div>
 </div>
 
 <!-- Odds guess -->
@@ -283,7 +268,7 @@ function score(game, pts, extra) { best[game] = Math.max(best[game] || 0, pts); 
 function start() { $('join').classList.add('hide'); $('app').classList.remove('hide'); nimNew(); tNew(); send({ t: 'hi' }); }
 $('name').value = name;
 $('go').onclick = () => { const v = $('name').value.trim().slice(0, 14); if (!v) { $('name').focus(); return; } name = v; try { localStorage.setItem('njName', name); } catch (e) {} start(); };
-const GAMES = ['puz', 'risk', 'odds', 'g23', 'nim', 'ttt', 'vote'];
+const GAMES = ['puz', 'odds', 'g23', 'nim', 'ttt', 'vote'];
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b)); GAMES.forEach(t => $('t-' + t).classList.toggle('hide', t !== b.dataset.t)); });
 const draw = (el, b, cls) => { el.innerHTML = ''; b.forEach((v, i) => { const c = document.createElement('button'); c.textContent = v || ''; c.className = (v || '') + ' ' + ((cls && cls[i]) || ''); c.dataset.i = i; el.appendChild(c); }); };
 
@@ -312,23 +297,6 @@ function puzAnswer(i) {
 $('puzBoard').onclick = e => { const b = e.target.closest('button'); if (b && !PUZ[pi].b[+b.dataset.i]) puzAnswer(+b.dataset.i); };
 $('puzStart').onclick = () => { pi = 0; pTotal = 0; $('puzEnd').textContent = ''; $('puzStart').classList.add('hide'); $('puzPlay').classList.remove('hide'); puzShow(); };
 $('puzNext').onclick = () => { if (pi < PUZ.length - 1) { pi++; puzShow(); } else { $('puzPlay').classList.add('hide'); $('puzStart').classList.remove('hide'); $('puzStart').textContent = 'Play again'; $('puzEnd').innerHTML = `Final: <b>${pTotal}</b> of 750. The AI gets all five by checking every future.`; score('puz', pTotal); } };
-
-/* ---- Risk Rush ---- */
-const OFFERS = [[5, 12, 0.5], [8, 20, 0.3], [4, 10, 0.5], [10, 30, 0.3], [6, 9, 0.7], [3, 25, 0.1]];
-let ri = 0, rPts = 0, rSmart = 0, rDone = false;
-function riskShow() {
-  rDone = false; const [s, g, p] = OFFERS[ri]; $('riskHead').textContent = `Round ${ri + 1} of ${OFFERS.length} · points so far ${rPts}`;
-  $('rSafe').innerHTML = `Safe<b>+${s}</b>for sure`; $('rGamble').innerHTML = `Gamble<b>+${g}</b>${Math.round(p * 100)}% chance, else 0`; $('riskMsg').textContent = 'Your choice?'; $('riskNext').classList.add('hide');
-}
-function riskPick(gamble) {
-  if (rDone) return; rDone = true; const [s, g, p] = OFFERS[ri], ev = p * g, smart = gamble ? ev > s : ev < s; if (smart) rSmart++;
-  let msg; if (gamble) { const win = Math.random() < p; rPts += win ? g : 0; msg = win ? `<b class="right">You won +${g}!</b>` : '<b class="wrong">No luck: 0.</b>'; } else { rPts += s; msg = `Safe: +${s}.`; }
-  $('riskMsg').innerHTML = msg + `<br><span class="stat">Average of the gamble = ${(ev).toFixed(1)} vs safe ${s}. Expectimax picks <b>${ev > s ? 'gamble' : 'safe'}</b>. ${smart ? 'Smart pick! +5' : ''}</span>`;
-  $('riskNext').textContent = ri === OFFERS.length - 1 ? 'Finish' : 'Next round'; $('riskNext').classList.remove('hide');
-}
-$('rSafe').onclick = () => riskPick(false); $('rGamble').onclick = () => riskPick(true);
-$('riskStart').onclick = () => { ri = 0; rPts = 0; rSmart = 0; $('riskEnd').textContent = ''; $('riskStart').classList.add('hide'); $('riskPlay').classList.remove('hide'); riskShow(); };
-$('riskNext').onclick = () => { if (ri < OFFERS.length - 1) { ri++; riskShow(); } else { const tot = rPts + 5 * rSmart; $('riskPlay').classList.add('hide'); $('riskStart').classList.remove('hide'); $('riskStart').textContent = 'Play again'; $('riskEnd').innerHTML = `Points won: <b>${rPts}</b> + smart bonus <b>${5 * rSmart}</b> (${rSmart} of 6 smart picks) = <b>${tot}</b>`; score('risk', tot); } };
 
 /* ---- Odds guess ---- */
 function randX(b, t) { const w = winner(b); if (w) return w === 'X' ? 1 : 0; let s = 0, n = 0; for (let i = 0; i < 9; i++) { if (b[i]) continue; b[i] = t; s += randX(b, other(t)); b[i] = null; n++; } return s / n; }

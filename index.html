@@ -90,25 +90,6 @@ kbd{background:#2a2522;border:1px solid var(--line);border-radius:5px;padding:0 
 </div>
 </section>
 
-<!-- 3 EXPECTIMAX -->
-<section id="s3">
-<h2>Expectimax: decisions with luck</h2><p class="sub">A safe payout, or a gamble. Which would the AI take?</p>
-<div class="row">
- <div class="card" style="min-width:300px">
-  <label>Safe payout <input type="range" id="gSafe" min="1" max="12" value="5"> <b id="gSafeV"></b></label>
-  <label>Gamble prize <input type="range" id="gPrize" min="2" max="30" value="12"> <b id="gPrizeV"></b></label>
-  <label>Win chance <input type="range" id="gProb" min="5" max="95" step="5" value="50"> <b id="gProbV"></b></label>
-  <div class="msg" id="gVerdict" style="margin-top:14px"></div>
-  <div class="stat">Expected value = chance &times; prize</div>
- </div>
- <div>
-  <div class="ctl"><button class="b p" data-g="1">Play 1</button><button class="b" data-g="10">&times;10</button><button class="b" data-g="100">&times;100</button><button class="b" data-g="1000">&times;1000</button><button class="b" id="gReset">Reset</button></div>
-  <canvas id="gChart" width="760" height="320"></canvas>
-  <div class="stat" id="gStat" style="margin-top:8px"></div>
- </div>
-</div>
-</section>
-
 <!-- 4 MARKOV -->
 <section id="s4">
 <h2>Markov chains: Snakes &amp; Ladders</h2><p class="sub">The next square depends only on the square you are on now. That is the whole idea.</p>
@@ -307,15 +288,15 @@ if (typeof module !== 'undefined') module.exports = { winner, turnOf, minimax, m
 </script>
 <script>
 const $ = id => document.getElementById(id);
-const SECTIONS = ['Beat the machine', 'Minimax tree', 'Expectimax', 'Markov chains', 'Monte Carlo', 'Live class game'];
+const SECTIONS = ['Beat the machine', 'Minimax tree', 'Markov chains', 'Monte Carlo', 'Live class game'];
 let cur = 0;
 function show(n) {
-  cur = n; if (n === 5 && typeof initLive === 'function') initLive();
+  cur = n; if (n === 4 && typeof initLive === 'function') initLive();
   document.querySelectorAll('section').forEach((s, i) => s.classList.toggle('on', i === n));
   document.querySelectorAll('#nav button').forEach((b, i) => b.classList.toggle('on', i === n));
 }
 SECTIONS.forEach((t, i) => { const b = document.createElement('button'); b.innerHTML = '<span>' + (i + 1) + '</span>' + t; b.onclick = () => show(i); $('nav').appendChild(b); });
-document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; if (e.key >= '1' && e.key <= '6') show(+e.key - 1); });
+document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; if (e.key >= '1' && e.key <= '5') show(+e.key - 1); });
 
 /* ---------- 1. Beat the machine ---------- */
 let tb, human = 'X', over = false;
@@ -418,26 +399,6 @@ $('tReset').onclick = tReset; $('tPrune').onchange = tReset;
 $('tRand').onclick = () => { leaves = leaves.map(() => 1 + Math.floor(Math.random() * 14)); tReset(); };
 $('tAuto').onclick = () => { if (timer) { clearInterval(timer); timer = null; $('tAuto').textContent = 'Auto-play'; return; } $('tAuto').textContent = 'Pause'; timer = setInterval(() => { if (stp >= events.length) { clearInterval(timer); timer = null; $('tAuto').textContent = 'Auto-play'; } else { stp++; tDraw(); } }, 800); };
 tReset();
-
-/* ---------- 3. Expectimax gamble ---------- */
-let gN = 0, gSum = 0, gWins = 0, gHist = [];
-function gParams() { return { safe: +$('gSafe').value, prize: +$('gPrize').value, p: +$('gProb').value / 100 }; }
-function gDraw() {
-  const { safe, prize, p } = gParams(), ev = p * prize;
-  $('gSafeV').textContent = safe; $('gPrizeV').textContent = prize; $('gProbV').textContent = Math.round(p * 100) + '%';
-  $('gVerdict').innerHTML = `Gamble EV = ${(ev).toFixed(2)} &nbsp;vs&nbsp; safe ${safe}<br><b style="color:var(--acc)">Expectimax picks: ${ev > safe ? 'GAMBLE' : ev < safe ? 'SAFE' : 'either (tie)'}</b>`;
-  const cv = $('gChart'), c = cv.getContext('2d'), W = cv.width, H = cv.height, top = Math.max(prize, safe) * 1.15, Y = v => H - 30 - (v / top) * (H - 50);
-  c.clearRect(0, 0, W, H); c.font = '15px Inter,sans-serif'; c.lineWidth = 2;
-  c.strokeStyle = '#6fcf97'; c.setLineDash([8, 6]); c.beginPath(); c.moveTo(40, Y(safe)); c.lineTo(W - 10, Y(safe)); c.stroke(); c.fillStyle = '#6fcf97'; c.fillText('safe ' + safe, 46, Y(safe) - 6);
-  c.strokeStyle = '#e8c468'; c.beginPath(); c.moveTo(40, Y(ev)); c.lineTo(W - 10, Y(ev)); c.stroke(); c.fillStyle = '#e8c468'; c.fillText('expected ' + ev.toFixed(2), W - 150, Y(ev) - 6); c.setLineDash([]);
-  if (gHist.length) { c.strokeStyle = '#F08A55'; c.lineWidth = 3; c.beginPath(); const n = gHist.length; gHist.forEach((v, i) => { const x = 40 + (n === 1 ? 0 : i / (n - 1)) * (W - 50); i ? c.lineTo(x, Y(v)) : c.moveTo(x, Y(v)); }); c.stroke(); if (n === 1) { c.fillStyle = '#F08A55'; c.beginPath(); c.arc(40, Y(gHist[0]), 5, 0, 7); c.fill(); } }
-  c.fillStyle = '#a79c93'; c.fillText('average payout per play, as you play more rounds →', 46, H - 8);
-  $('gStat').innerHTML = gN ? `Plays: <b>${gN.toLocaleString()}</b> · wins: <b>${gWins.toLocaleString()}</b> · average payout from gambling: <b>${(gSum / gN).toFixed(2)}</b> vs safe <b>${safe}</b>` : 'Press “Play” to start gambling.';
-}
-function gPlay(k) { const { prize, p } = gParams(); for (let i = 0; i < k; i++) { const w = Math.random() < p; gN++; gWins += w; gSum += w ? prize : 0; if (gN <= 2000 || gN % 10 === 0) gHist.push(gSum / gN); } gDraw(); }
-document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => gPlay(+b.dataset.g));
-function gReset() { gN = gSum = gWins = 0; gHist = []; gDraw(); }
-$('gReset').onclick = gReset; ['gSafe', 'gPrize', 'gProb'].forEach(id => $(id).oninput = gReset); gReset();
 
 /* ---------- 4. Snakes & Ladders ---------- */
 const CELL = 60;
@@ -545,8 +506,8 @@ function liveRender() {
   const P = Object.values(L.sc).map(p => ({ name: (p.name || 'anon').replace(/[<>&]/g, ''), best: p.best, tot: Object.values(p.best).reduce((x, y) => x + y, 0), res: p.res })).sort((x, y) => y.tot - x.tot);
   const played = g => P.filter(p => p.best[g] !== undefined).length, nimWin = P.filter(p => (p.res.nim || []).includes('win')).length, tttWin = P.filter(p => (p.res.ttt || []).includes('win')).length, tttDraw = P.filter(p => (p.res.ttt || []).includes('draw')).length;
   const col = g => { const t = P.filter(p => p.best[g]).sort((x, y) => y.best[g] - x.best[g])[0]; return t ? `${t.name} (${t.best[g]})` : '–'; };
-  $('lb').innerHTML = (P.length ? '<table style="width:100%;font-size:21px"><tr><th>#</th><th>Player</th><th>Puzzles</th><th>Risk</th><th>Odds</th><th>2/3</th><th>Nim</th><th>TTT</th><th>Total</th></tr>' + P.slice(0, 8).map((p, i) => `<tr${i === 0 ? ' class="best"' : ''}><td>${i + 1}</td><td>${p.name}</td>` + ['puz', 'risk', 'odds', 'g23', 'nim', 'ttt'].map(g => `<td>${p.best[g] === undefined ? '·' : p.best[g]}</td>`).join('') + `<td><b>${p.tot}</b></td></tr>`).join('') + '</table>' : '<div class="stat">Waiting for scores…</div>')
-    + `<div class="stat" style="margin-top:10px">Played: puzzles ${played('puz')} · risk ${played('risk')} · odds ${played('odds')} · nim ${played('nim')} · ttt ${played('ttt')}</div><div class="stat">Nim beaten by <b>${nimWin}</b> · tic-tac-toe: <b>${tttWin}</b> wins, <b>${tttDraw}</b> forced a draw</div><div class="stat">Best: puzzles ${col('puz')} · risk ${col('risk')} · odds ${col('odds')}</div>`;
+  $('lb').innerHTML = (P.length ? '<table style="width:100%;font-size:21px"><tr><th>#</th><th>Player</th><th>Puzzles</th><th>Odds</th><th>2/3</th><th>Nim</th><th>TTT</th><th>Total</th></tr>' + P.slice(0, 8).map((p, i) => `<tr${i === 0 ? ' class="best"' : ''}><td>${i + 1}</td><td>${p.name}</td>` + ['puz', 'odds', 'g23', 'nim', 'ttt'].map(g => `<td>${p.best[g] === undefined ? '·' : p.best[g]}</td>`).join('') + `<td><b>${p.tot}</b></td></tr>`).join('') + '</table>' : '<div class="stat">Waiting for scores…</div>')
+    + `<div class="stat" style="margin-top:10px">Played: puzzles ${played('puz')} · odds ${played('odds')} · nim ${played('nim')} · ttt ${played('ttt')}</div><div class="stat">Nim beaten by <b>${nimWin}</b> · tic-tac-toe: <b>${tttWin}</b> wins, <b>${tttDraw}</b> forced a draw</div><div class="stat">Best: puzzles ${col('puz')} · odds ${col('odds')}</div>`;
 }
 function gRender() {
   const g = L.g, vals = Object.values(g.guesses), last = g.rounds[g.rounds.length - 1];
