@@ -272,7 +272,6 @@ function score(game, pts, extra) { best[game] = Math.max(best[game] || 0, pts); 
 function start() { $('join').classList.add('hide'); $('app').classList.remove('hide'); nimNew(); tNew(); send({ t: 'hi' }); }
 $('name').value = name;
 $('go').onclick = () => { const v = $('name').value.trim().slice(0, 14); if (!v) { $('name').focus(); return; } name = v; try { localStorage.setItem('njName', name); } catch (e) {} start(); };
-if (name) start();
 const GAMES = ['puz', 'risk', 'odds', 'nim', 'ttt', 'vote'];
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b)); GAMES.forEach(t => $('t-' + t).classList.toggle('hide', t !== b.dataset.t)); });
 const draw = (el, b, cls) => { el.innerHTML = ''; b.forEach((v, i) => { const c = document.createElement('button'); c.textContent = v || ''; c.className = (v || '') + ' ' + ((cls && cls[i]) || ''); c.dataset.i = i; el.appendChild(c); }); };
@@ -371,4 +370,5 @@ $('tagain').onclick = tNew;
 /* ---- Vote ---- */
 function mkPad(el, items) { items.forEach(v => { const b = document.createElement('button'); b.textContent = v; b.onclick = async () => { document.querySelectorAll('.pad button').forEach(x => x.classList.toggle('sel', x.textContent === v)); $('vstat').textContent = 'Sending…'; const ok = await send({ t: 'v', choice: v }); $('vstat').innerHTML = ok ? `Sent <b>${v}</b> ✓ Tap another to change.` : 'Not sent. Check connection and tap again.'; }; el.appendChild(b); }); }
 mkPad($('padL'), ['A', 'B', 'C', 'D']); mkPad($('padN'), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+if (name) start();
 </script></div></body></html>
